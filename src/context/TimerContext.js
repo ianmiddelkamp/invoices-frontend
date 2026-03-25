@@ -8,6 +8,7 @@ export function TimerProvider({ children }) {
   const [session, setSession]       = useState(null);
   const [elapsed, setElapsed]       = useState(0);
   const [projectId, setProjectId]   = useState('');
+  const [taskId, setTaskId]         = useState(null);
   const [description, setDescription] = useState('');
   const [loading, setLoading]       = useState(true);
   const debounceRef = useRef(null);
@@ -19,6 +20,7 @@ export function TimerProvider({ children }) {
         if (active) {
           setSession(active);
           setProjectId(String(active.project_id));
+          setTaskId(active.task_id || null);
           setDescription(active.description || '');
           setElapsed(elapsedSeconds(active.started_at));
         }
@@ -35,10 +37,11 @@ export function TimerProvider({ children }) {
     return () => clearInterval(interval);
   }, [session]);
 
-  async function start(pid) {
-    const active = await startTimer(pid);
+  async function start(pid, tid) {
+    const active = await startTimer(pid, tid);
     setSession(active);
     setProjectId(String(active.project_id));
+    setTaskId(active.task_id || null);
     setDescription('');
     setElapsed(0);
   }
@@ -48,7 +51,7 @@ export function TimerProvider({ children }) {
     setSession(null);
     setElapsed(0);
     setDescription('');
-    setProjectId('');
+    setTaskId(null);
   }
 
   async function cancel() {
@@ -56,7 +59,7 @@ export function TimerProvider({ children }) {
     setSession(null);
     setElapsed(0);
     setDescription('');
-    setProjectId('');
+    setTaskId(null);
   }
 
   function changeDescription(value) {
@@ -67,8 +70,8 @@ export function TimerProvider({ children }) {
 
   return (
     <TimerContext.Provider value={{
-      session, elapsed, projectId, description, loading,
-      setProjectId, changeDescription,
+      session, elapsed, projectId, taskId, description, loading,
+      setProjectId, setTaskId, changeDescription,
       start, stop, cancel,
     }}>
       {children}

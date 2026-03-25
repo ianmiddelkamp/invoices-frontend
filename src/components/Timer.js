@@ -11,6 +11,7 @@ export default function TimerStatus() {
       <p className="text-xs text-indigo-300 font-medium">● Running</p>
       <p className="text-sm font-mono font-semibold text-white">{formatElapsed(elapsed)}</p>
       <p className="text-xs text-indigo-300 truncate">{session.project?.name}</p>
+      {session.task && <p className="text-xs text-indigo-400 truncate">· {session.task.title}</p>}
     </div>
   );
 }

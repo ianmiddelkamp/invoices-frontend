@@ -26,15 +26,33 @@ import {
   reorderTasks,
 } from '../api/tasks';
 
-const STATUS_CYCLE = { todo: 'in_progress', in_progress: 'done', done: 'todo' };
+const STATUSES = ['todo', 'in_progress', 'done'];
 const STATUS_LABEL = { todo: 'To do', in_progress: 'In progress', done: 'Done' };
-const STATUS_CLASS = {
-  todo: 'bg-gray-100 text-gray-600',
+const STATUS_ACTIVE_CLASS = {
+  todo: 'bg-gray-200 text-gray-700',
   in_progress: 'bg-blue-100 text-blue-700',
   done: 'bg-green-100 text-green-700',
 };
 
-function TaskItem({ task, projectId, groupId, onUpdate, onDelete, dragHandleProps, isDragging }) {
+function StatusPills({ status, onChange }) {
+  return (
+    <div className="flex rounded overflow-hidden border border-gray-200 flex-shrink-0">
+      {STATUSES.map((s) => (
+        <button
+          key={s}
+          onClick={() => onChange(s)}
+          className={`text-xs px-2 py-0.5 font-medium transition-colors ${
+            status === s ? STATUS_ACTIVE_CLASS[s] : 'bg-white text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          {STATUS_LABEL[s]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, selected, dragHandleProps, isDragging }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const inputRef = useRef(null);
@@ -51,8 +69,7 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, dragHandleProp
     onUpdate(task.id, { title: title.trim() });
   }
 
-  async function cycleStatus() {
-    const next = STATUS_CYCLE[task.status];
+  async function handleStatusChange(next) {
     await updateTask(projectId, groupId, task.id, { status: next });
     onUpdate(task.id, { status: next });
   }
@@ -64,50 +81,59 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, dragHandleProp
   }
 
   return (
-    <div className={`flex items-center gap-2 py-1.5 px-2 rounded group ${isDragging ? 'opacity-40' : ''}`}>
-      <button
-        {...dragHandleProps}
-        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0"
-        aria-label="Drag to reorder"
-      >
-        ⠿
-      </button>
-      <button
-        onClick={cycleStatus}
-        className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${STATUS_CLASS[task.status]}`}
-        title="Click to advance status"
-      >
-        {STATUS_LABEL[task.status]}
-      </button>
-      {editing ? (
-        <input
-          ref={inputRef}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={commitTitle}
-          onKeyDown={(e) => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitle(task.title); setEditing(false); } }}
-          className="flex-1 text-sm border-b border-indigo-400 outline-none bg-transparent"
-        />
-      ) : (
-        <span
-          className={`flex-1 text-sm cursor-pointer hover:text-indigo-700 ${task.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800'}`}
-          onClick={() => setEditing(true)}
+    <div className={`rounded px-2 py-2 group transition-colors ${selected ? 'bg-indigo-50 ring-1 ring-indigo-300' : ''} ${isDragging ? 'opacity-40' : ''}`}>
+      <div className="flex items-center gap-2">
+        <button
+          {...dragHandleProps}
+          className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0"
+          aria-label="Drag to reorder"
         >
-          {task.title}
-        </span>
-      )}
-      <button
-        onClick={handleDelete}
-        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs flex-shrink-0"
-        aria-label="Delete task"
-      >
-        ✕
-      </button>
+          ⠿
+        </button>
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitle(task.title); setEditing(false); } }}
+            className="flex-1 text-sm border-b border-indigo-400 outline-none bg-transparent"
+          />
+        ) : (
+          <span
+            className={`flex-1 text-sm cursor-pointer hover:text-indigo-700 ${task.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800'}`}
+            onClick={() => setEditing(true)}
+          >
+            {task.title}
+          </span>
+        )}
+        {onSelect && (
+          <button
+            onClick={() => onSelect(selected ? null : task.id)}
+            className={`flex-shrink-0 text-xs px-2 py-0.5 rounded font-medium transition-colors ${
+              selected ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-indigo-600'
+            }`}
+            title={selected ? 'Deselect task' : 'Select for timer'}
+          >
+            {selected ? '● Selected' : 'Select'}
+          </button>
+        )}
+        <button
+          onClick={handleDelete}
+          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs flex-shrink-0"
+          aria-label="Delete task"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="mt-1.5 ml-6">
+        <StatusPills status={task.status} onChange={handleStatusChange} />
+      </div>
     </div>
   );
 }
 
-function SortableTask({ task, projectId, groupId, onUpdate, onDelete }) {
+function SortableTask({ task, projectId, groupId, onUpdate, onDelete, onSelect, selected }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.id}`,
     data: { type: 'task', task, groupId },
@@ -126,6 +152,8 @@ function SortableTask({ task, projectId, groupId, onUpdate, onDelete }) {
         groupId={groupId}
         onUpdate={onUpdate}
         onDelete={onDelete}
+        onSelect={onSelect}
+        selected={selected}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
       />
@@ -133,7 +161,7 @@ function SortableTask({ task, projectId, groupId, onUpdate, onDelete }) {
   );
 }
 
-function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTask, onUpdateTask, onDeleteTask, dragHandleProps, isDragging }) {
+function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTask, onUpdateTask, onDeleteTask, onSelectTask, selectedTaskId, dragHandleProps, isDragging }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(group.title);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -222,6 +250,8 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
               groupId={group.id}
               onUpdate={(id, patch) => onUpdateTask(group.id, id, patch)}
               onDelete={(id) => onDeleteTask(group.id, id)}
+              onSelect={onSelectTask}
+              selected={Number(selectedTaskId) === task.id}
             />
           ))}
         </SortableContext>
@@ -254,7 +284,7 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
   );
 }
 
-function SortableGroup({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTask, onUpdateTask, onDeleteTask }) {
+function SortableGroup({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTask, onUpdateTask, onDeleteTask, onSelectTask, selectedTaskId }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `group-${group.id}`,
     data: { type: 'group', group },
@@ -275,6 +305,8 @@ function SortableGroup({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
         onAddTask={onAddTask}
         onUpdateTask={onUpdateTask}
         onDeleteTask={onDeleteTask}
+        onSelectTask={onSelectTask}
+        selectedTaskId={selectedTaskId}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
       />
@@ -282,7 +314,7 @@ function SortableGroup({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
   );
 }
 
-export default function TaskBoard({ projectId }) {
+export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, taskUpdate }) {
   const [groups, setGroups] = useState([]);
   const [newGroupTitle, setNewGroupTitle] = useState('');
   const [activeItem, setActiveItem] = useState(null);
@@ -293,6 +325,22 @@ export default function TaskBoard({ projectId }) {
     if (!projectId) return;
     getTaskGroups(projectId).then(setGroups);
   }, [projectId]);
+
+  // Apply external status patches (e.g. timer start → in_progress, stop → done)
+  useEffect(() => {
+    if (!taskUpdate) return;
+    const taskId = Number(taskUpdate.id);
+    setGroups((prev) => {
+      let groupId = null;
+      const next = prev.map((g) => {
+        const task = g.tasks.find((t) => t.id === taskId);
+        if (task) groupId = g.id;
+        return { ...g, tasks: g.tasks.map((t) => (t.id === taskId ? { ...t, ...taskUpdate.patch } : t)) };
+      });
+      if (groupId) updateTask(projectId, groupId, taskId, taskUpdate.patch).catch(() => {});
+      return next;
+    });
+  }, [taskUpdate]);
 
   async function addGroup(e) {
     e.preventDefault();
@@ -423,6 +471,8 @@ export default function TaskBoard({ projectId }) {
                 onAddTask={handleAddTask}
                 onUpdateTask={handleUpdateTask}
                 onDeleteTask={handleDeleteTask}
+                onSelectTask={onSelectTask}
+                selectedTaskId={selectedTaskId}
               />
             ))}
           </div>

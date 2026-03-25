@@ -74,6 +74,7 @@ export default function TimesheetList() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                   <th className="px-6 py-3" />
@@ -82,13 +83,14 @@ export default function TimesheetList() {
               <tbody className="divide-y divide-gray-200">
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">No time entries for this project.</td>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">No time entries for this project.</td>
                   </tr>
                 )}
                 {entries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900">{formatDate(entry.date)}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{parseFloat(entry.hours).toFixed(2)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{entry.task?.title || '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{entry.description || '—'}</td>
                     <td className="px-6 py-4 text-sm">
                       {entry.invoice_line_item?.invoice

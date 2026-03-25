@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { getProjects } from '../../api/projects';
 import { useTimer } from '../../context/TimerContext';
 import { formatElapsed } from '../../utils/dates';
+import TaskBoard from '../../components/TaskBoard';
 
 export default function TimerPage() {
-  const { session, elapsed, projectId, description, loading, setProjectId, changeDescription, start, stop, cancel } = useTimer();
+  const { session, elapsed, projectId, taskId, description, loading, setProjectId, setTaskId, changeDescription, start, stop, cancel } = useTimer();
   const [projects, setProjects] = useState([]);
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState(null);
+  const [taskUpdate, setTaskUpdate] = useState(null);
 
   useEffect(() => {
     getProjects().then(setProjects).catch((e) => setError(e.message));
@@ -16,7 +18,8 @@ export default function TimerPage() {
   async function handleStart() {
     if (!projectId) return;
     try {
-      await start(projectId);
+      await start(projectId, taskId);
+      if (taskId) setTaskUpdate({ id: taskId, patch: { status: 'in_progress' } });
     } catch (e) {
       setError(e.message);
     }
@@ -24,8 +27,12 @@ export default function TimerPage() {
 
   async function handleStop() {
     try {
+      const linkedTaskId = session?.task_id;
       await stop(projectId, description);
       setStopping(false);
+      if (linkedTaskId && window.confirm('Mark the linked task as done?')) {
+        setTaskUpdate({ id: linkedTaskId, patch: { status: 'done' } });
+      }
     } catch (e) {
       setError(e.message);
     }
@@ -42,6 +49,12 @@ export default function TimerPage() {
   }
 
   if (loading) return <div className="p-8 text-gray-500">Loading…</div>;
+
+  // When project changes while not running, clear selected task
+  function handleProjectChange(e) {
+    setProjectId(e.target.value);
+    setTaskId(null);
+  }
 
   return (
     <div className="p-8 max-w-2xl">
@@ -61,6 +74,7 @@ export default function TimerPage() {
           {session && (
             <p className="mt-2 text-sm text-gray-500">
               {session.project?.name}{session.project?.client ? ` — ${session.project.client.name}` : ''}
+              {session.task && <span className="ml-2 text-indigo-500">· {session.task.title}</span>}
             </p>
           )}
         </div>
@@ -70,7 +84,7 @@ export default function TimerPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
           <select
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            onChange={handleProjectChange}
             disabled={!!session && !stopping}
             className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-50 disabled:text-gray-500"
           >
@@ -147,6 +161,15 @@ export default function TimerPage() {
           )}
         </div>
       </div>
+
+      {projectId && (
+        <TaskBoard
+          projectId={projectId}
+          selectedTaskId={taskId}
+          onSelectTask={(id) => setTaskId(id)}
+          taskUpdate={taskUpdate}
+        />
+      )}
     </div>
   );
 }
