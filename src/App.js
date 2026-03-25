@@ -1,25 +1,32 @@
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import ClientList from './pages/clients/ClientList';
+import ClientForm from './pages/clients/ClientForm';
+import ProjectList from './pages/projects/ProjectList';
+import ProjectForm from './pages/projects/ProjectForm';
+import TimesheetList from './pages/timesheets/TimesheetList';
+import TimesheetForm from './pages/timesheets/TimesheetForm';
 
-function App() {
+export default function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/clients" replace />} />
+
+          <Route path="clients" element={<ClientList />} />
+          <Route path="clients/new" element={<ClientForm />} />
+          <Route path="clients/:id/edit" element={<ClientForm />} />
+
+          <Route path="projects" element={<ProjectList />} />
+          <Route path="projects/new" element={<ProjectForm />} />
+          <Route path="projects/:id/edit" element={<ProjectForm />} />
+
+          <Route path="timesheets" element={<TimesheetList />} />
+          <Route path="timesheets/new" element={<TimesheetForm />} />
+          <Route path="timesheets/:id/edit" element={<TimesheetForm />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-export default App;

@@ -1,0 +1,117 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getProject, createProject, updateProject } from '../../api/projects';
+import { getClients } from '../../api/clients';
+import PageHeader from '../../components/PageHeader';
+
+const EMPTY = { name: '', client_id: '', description: '' };
+
+export default function ProjectForm() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEdit = Boolean(id);
+
+  const [form, setForm] = useState(EMPTY);
+  const [clients, setClients] = useState([]);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getClients().then(setClients).catch((e) => setError(e.message));
+
+    if (isEdit) {
+      getProject(id)
+        .then((p) => setForm({ name: p.name, client_id: p.client_id, description: p.description || '' }))
+        .catch((e) => setError(e.message));
+    }
+  }, [id, isEdit]);
+
+  function handleChange(e) {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      if (isEdit) {
+        await updateProject(id, form);
+      } else {
+        await createProject(form);
+      }
+      navigate('/projects');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="p-8 max-w-lg">
+      <PageHeader title={isEdit ? 'Edit Project' : 'New Project'} />
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
+          <input
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            required
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
+          <select
+            name="client_id"
+            value={form.client_id}
+            onChange={handleChange}
+            required
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="">Select a client…</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            rows={3}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Project'}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/projects')}
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
