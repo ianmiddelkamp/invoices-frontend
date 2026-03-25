@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getInvoices, deleteInvoice, downloadPdfUrl } from '../../api/invoices';
+import { getInvoices, deleteInvoice } from '../../api/invoices';
 import PageHeader from '../../components/PageHeader';
+import { formatDate } from '../../utils/dates';
 
 const STATUS_STYLES = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -67,8 +68,8 @@ export default function InvoiceList() {
                   <td className="px-6 py-4 text-sm text-gray-500">{inv.client?.name || '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {inv.start_date && inv.end_date
-                      ? `${inv.start_date} – ${inv.end_date}`
-                      : inv.start_date || '—'}
+                      ? `${formatDate(inv.start_date)} – ${formatDate(inv.end_date)}`
+                      : formatDate(inv.start_date)}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {inv.total != null ? `$${parseFloat(inv.total).toFixed(2)}` : '—'}
@@ -79,10 +80,7 @@ export default function InvoiceList() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-sm space-x-3">
-                    <Link to={`/invoices/${inv.id}`} className="text-indigo-600 hover:text-indigo-800">View</Link>
-                    <a href={downloadPdfUrl(inv.id)} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-gray-700">
-                      PDF
-                    </a>
+                    <Link to={`/invoices/${inv.id}`} className="text-indigo-600 hover:text-indigo-800">View</Link>                   
                     <button onClick={() => handleDelete(inv.id)} className="text-red-500 hover:text-red-700">Delete</button>
                   </td>
                 </tr>

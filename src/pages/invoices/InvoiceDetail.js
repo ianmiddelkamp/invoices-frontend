@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getInvoice, updateInvoice, downloadPdfUrl, regeneratePdf, sendInvoice } from '../../api/invoices';
+import { getInvoice, updateInvoice, downloadPdf, regeneratePdf, sendInvoice } from '../../api/invoices';
+import { formatDate } from '../../utils/dates';
 
 const STATUS_STYLES = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -43,13 +44,20 @@ export default function InvoiceDetail() {
     }
   }
 
+  async function handleDownloadPdf() {
+    try {
+      await downloadPdf(id, `${invoice.number}.pdf`);
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
   async function handleRegeneratePdf() {
     if (!window.confirm('Regenerate the PDF? This will overwrite the existing file.')) return;
     setRegenerating(true);
     try {
       await regeneratePdf(id);
-      // Force browser to re-fetch the PDF by navigating to it
-      window.open(downloadPdfUrl(id), '_blank');
+      await downloadPdf(id, `${invoice.number}.pdf`);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -103,14 +111,12 @@ export default function InvoiceDetail() {
           >
             {sending ? 'Sending…' : 'Send Invoice'}
           </button>
-          <a
-            href={downloadPdfUrl(invoice.id)}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={handleDownloadPdf}
             className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
           >
             Download PDF
-          </a>
+          </button>
           <button
             onClick={handleRegeneratePdf}
             disabled={regenerating}
@@ -134,11 +140,11 @@ export default function InvoiceDetail() {
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Period</p>
             <p className="text-sm text-gray-700">
               {invoice.start_date && invoice.end_date
-                ? `${invoice.start_date} – ${invoice.end_date}`
+                ? `${formatDate(invoice.start_date)} – ${formatDate(invoice.end_date)}`
                 : '—'}
             </p>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-3 mb-1">Issued</p>
-            <p className="text-sm text-gray-700">{invoice.created_at?.slice(0, 10)}</p>
+            <p className="text-sm text-gray-700">{formatDate(invoice.created_at)}</p>
           </div>
         </div>
 
@@ -157,7 +163,7 @@ export default function InvoiceDetail() {
           <tbody className="divide-y divide-gray-200">
             {invoice.invoice_line_items?.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-6 py-3 text-sm text-gray-500">{item.time_entry?.date}</td>
+                <td className="px-6 py-3 text-sm text-gray-500">{formatDate(item.time_entry?.date)}</td>
                 <td className="px-6 py-3 text-sm text-gray-500">{item.time_entry?.project?.name}</td>
                 <td className="px-6 py-3 text-sm text-gray-500">{item.description || '—'}</td>
                 <td className="px-6 py-3 text-sm text-gray-900 text-right">{parseFloat(item.hours).toFixed(2)}</td>

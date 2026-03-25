@@ -11,7 +11,9 @@ import InvoiceList from './pages/invoices/InvoiceList';
 import InvoiceForm from './pages/invoices/InvoiceForm';
 import InvoiceDetail from './pages/invoices/InvoiceDetail';
 import SettingsPage from './pages/settings/SettingsPage';
+import TimerPage from './pages/timer/TimerPage';
 import { getToken } from './api/index';
+import { TimerProvider } from './context/TimerContext';
 
 function RequireAuth({ children }) {
   return getToken() ? children : <Navigate to="/login" replace />;
@@ -23,7 +25,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
-        <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
+        <Route path="/" element={<RequireAuth><TimerProvider><Layout /></TimerProvider></RequireAuth>}>
           <Route index element={<Navigate to="/clients" replace />} />
 
           <Route path="clients" element={<ClientList />} />
@@ -42,6 +44,7 @@ export default function App() {
           <Route path="invoices/new" element={<InvoiceForm />} />
           <Route path="invoices/:id" element={<InvoiceDetail />} />
 
+          <Route path="timer" element={<TimerPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

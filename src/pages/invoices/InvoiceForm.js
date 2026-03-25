@@ -3,13 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getClients } from '../../api/clients';
 import { createInvoice } from '../../api/invoices';
 import PageHeader from '../../components/PageHeader';
-
-const firstOfMonth = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-};
-
-const today = () => new Date().toISOString().slice(0, 10);
+import { today, firstOfMonth } from '../../utils/dates';
 
 export default function InvoiceForm() {
   const navigate = useNavigate();

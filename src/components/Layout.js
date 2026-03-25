@@ -1,12 +1,14 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { clearToken } from '../api/index';
+import TimerStatus from './Timer';
 
 const navItems = [
-  { to: '/clients', label: 'Clients' },
-  { to: '/projects', label: 'Projects' },
+  { to: '/clients',    label: 'Clients' },
+  { to: '/projects',   label: 'Projects' },
   { to: '/timesheets', label: 'Timesheets' },
-  { to: '/invoices', label: 'Invoices' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/timer',      label: 'Timer' },
+  { to: '/invoices',   label: 'Invoices' },
+  { to: '/settings',   label: 'Settings' },
 ];
 
 export default function Layout() {
@@ -41,6 +43,7 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <TimerStatus />
         <div className="px-3 py-4 border-t border-gray-700">
           <button
             onClick={handleLogout}

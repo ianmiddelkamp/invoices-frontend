@@ -3,9 +3,10 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getProjects } from '../../api/projects';
 import { createTimeEntry, updateTimeEntry, getTimeEntries } from '../../api/timeEntries';
 import PageHeader from '../../components/PageHeader';
+import { today, hoursFromRange } from '../../utils/dates';
+import { DateTime } from 'luxon';
 
-const today = () => new Date().toISOString().slice(0, 10);
-const EMPTY = { project_id: '', date: today(), hours: '', description: '' };
+const EMPTY = { project_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '' };
 
 export default function TimesheetForm() {
   const { id } = useParams();
@@ -21,6 +22,8 @@ export default function TimesheetForm() {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  const timesProvided = form.start_time && form.stop_time;
+
   useEffect(() => {
     getProjects()
       .then((ps) => {
@@ -35,7 +38,6 @@ export default function TimesheetForm() {
 
   useEffect(() => {
     if (!isEdit || !form.project_id) return;
-    // Load the specific entry by fetching the project's entries and finding it
     getTimeEntries(form.project_id)
       .then((entries) => {
         const entry = entries.find((e) => String(e.id) === String(id));
@@ -45,6 +47,8 @@ export default function TimesheetForm() {
             date: entry.date,
             hours: entry.hours,
             description: entry.description || '',
+            start_time: entry.started_at ? DateTime.fromISO(entry.started_at).toFormat('HH:mm') : '',
+            stop_time: entry.stopped_at ? DateTime.fromISO(entry.stopped_at).toFormat('HH:mm') : '',
           });
         }
       })
@@ -53,19 +57,42 @@ export default function TimesheetForm() {
   }, [isEdit, form.project_id]);
 
   function handleChange(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+
+      // Auto-calculate hours when both times and date are set
+      const date = name === 'date' ? value : updated.date;
+      const start = name === 'start_time' ? value : updated.start_time;
+      const stop = name === 'stop_time' ? value : updated.stop_time;
+
+      if (date && start && stop) {
+        const startISO = `${date}T${start}`;
+        const stopISO = `${date}T${stop}`;
+        if (stopISO > startISO) {
+          updated.hours = hoursFromRange(startISO, stopISO);
+        }
+      }
+
+      return updated;
+    });
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const { project_id, ...entryData } = form;
+    const { project_id, start_time, stop_time, ...entryData } = form;
+    const payload = {
+      ...entryData,
+      started_at: start_time ? DateTime.fromISO(`${form.date}T${start_time}`).toISO() : null,
+      stopped_at: stop_time ? DateTime.fromISO(`${form.date}T${stop_time}`).toISO() : null,
+    };
     try {
       if (isEdit) {
-        await updateTimeEntry(project_id, id, entryData);
+        await updateTimeEntry(project_id, id, payload);
       } else {
-        await createTimeEntry(project_id, entryData);
+        await createTimeEntry(project_id, payload);
       }
       navigate('/timesheets');
     } catch (err) {
@@ -101,7 +128,6 @@ export default function TimesheetForm() {
             ))}
           </select>
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
           <input
@@ -113,6 +139,30 @@ export default function TimesheetForm() {
             className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start time</label>
+            <input
+              type="time"
+              name="start_time"
+              value={form.start_time}
+              onChange={handleChange}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">End time</label>
+            <input
+              type="time"
+              name="stop_time"
+              value={form.stop_time}
+              onChange={handleChange}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+          </div>
+        </div>
+
+
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Hours *</label>
@@ -122,12 +172,14 @@ export default function TimesheetForm() {
             value={form.hours}
             onChange={handleChange}
             required
-            min="0.25"
+            min="0.01"
             max="24"
             step="0.25"
             placeholder="e.g. 2.5"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            readOnly={timesProvided}
+            className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${timesProvided ? 'bg-gray-50 text-gray-500' : ''}`}
           />
+          {timesProvided && <p className="text-xs text-gray-400 mt-1">Calculated from start and end time</p>}
         </div>
 
         <div>

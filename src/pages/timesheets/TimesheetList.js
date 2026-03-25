@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getProjects } from '../../api/projects';
 import { getTimeEntries, deleteTimeEntry } from '../../api/timeEntries';
 import PageHeader from '../../components/PageHeader';
+import { formatDate } from '../../utils/dates';
 
 export default function TimesheetList() {
   const [projects, setProjects] = useState([]);
@@ -86,7 +87,7 @@ export default function TimesheetList() {
                 )}
                 {entries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">{entry.date}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{formatDate(entry.date)}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{parseFloat(entry.hours).toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{entry.description || '—'}</td>
                     <td className="px-6 py-4 text-sm">
