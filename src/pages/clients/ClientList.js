@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getClients, deleteClient } from '../../api/clients';
 import PageHeader from '../../components/PageHeader';
+import { confirm } from '../../services/dialog';
 
 export default function ClientList() {
   const [clients, setClients] = useState([]);
@@ -16,7 +17,7 @@ export default function ClientList() {
   }, []);
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this client?')) return;
+    if (!await confirm('Delete this client?')) return;
     try {
       await deleteClient(id);
       setClients((prev) => prev.filter((c) => c.id !== id));

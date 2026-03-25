@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getInvoice, updateInvoice, downloadPdf, regeneratePdf, sendInvoice } from '../../api/invoices';
 import { formatDate } from '../../utils/dates';
+import { confirm } from '../../services/dialog';
 
 const STATUS_STYLES = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -32,7 +33,7 @@ export default function InvoiceDetail() {
   }, [id]);
 
   async function handleSendInvoice() {
-    if (!window.confirm(`Send invoice to ${invoice.client?.email1}?`)) return;
+    if (!await confirm(`Send invoice to ${invoice.client?.email1}?`, { title: 'Send Invoice', confirmLabel: 'Send', danger: false })) return;
     setSending(true);
     try {
       const res = await sendInvoice(id);
@@ -53,7 +54,7 @@ export default function InvoiceDetail() {
   }
 
   async function handleRegeneratePdf() {
-    if (!window.confirm('Regenerate the PDF? This will overwrite the existing file.')) return;
+    if (!await confirm('Regenerate the PDF? This will overwrite the existing file.', { title: 'Regenerate PDF', confirmLabel: 'Regenerate', danger: false })) return;
     setRegenerating(true);
     try {
       await regeneratePdf(id);

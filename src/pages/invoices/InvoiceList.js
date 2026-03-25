@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getInvoices, deleteInvoice } from '../../api/invoices';
 import PageHeader from '../../components/PageHeader';
+import { confirm } from '../../services/dialog';
 import { formatDate } from '../../utils/dates';
 
 const STATUS_STYLES = {
@@ -23,7 +24,7 @@ export default function InvoiceList() {
   }, []);
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this invoice?')) return;
+    if (!await confirm('Delete this invoice?')) return;
     try {
       await deleteInvoice(id);
       setInvoices((prev) => prev.filter((inv) => inv.id !== id));

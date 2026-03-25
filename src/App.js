@@ -14,6 +14,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 import TimerPage from './pages/timer/TimerPage';
 import { getToken } from './api/index';
 import { TimerProvider } from './context/TimerContext';
+import DialogProvider from './components/DialogProvider';
 
 function RequireAuth({ children }) {
   return getToken() ? children : <Navigate to="/login" replace />;
@@ -22,6 +23,7 @@ function RequireAuth({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <DialogProvider />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 

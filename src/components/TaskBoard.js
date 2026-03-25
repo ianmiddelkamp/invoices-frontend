@@ -25,6 +25,7 @@ import {
   deleteTask,
   reorderTasks,
 } from '../api/tasks';
+import { confirm } from '../services/dialog';
 
 const STATUSES = ['todo', 'in_progress', 'done'];
 const STATUS_LABEL = { todo: 'To do', in_progress: 'In progress', done: 'Done' };
@@ -75,7 +76,7 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
   }
 
   async function handleDelete() {
-    if (!window.confirm('Delete this task?')) return;
+    if (!await confirm('Delete this task?')) return;
     await deleteTask(projectId, groupId, task.id);
     onDelete(task.id);
   }
@@ -186,7 +187,7 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
   }
 
   async function handleDeleteGroup() {
-    if (!window.confirm(`Delete "${group.title}" and all its tasks?`)) return;
+    if (!await confirm(`Delete "${group.title}" and all its tasks?`)) return;
     await deleteTaskGroup(projectId, group.id);
     onDeleteGroup(group.id);
   }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getProjects, deleteProject } from '../../api/projects';
 import PageHeader from '../../components/PageHeader';
+import { confirm } from '../../services/dialog';
 
 export default function ProjectList() {
   const [projects, setProjects] = useState([]);
@@ -16,7 +17,7 @@ export default function ProjectList() {
   }, []);
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this project?')) return;
+    if (!await confirm('Delete this project?')) return;
     try {
       await deleteProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));

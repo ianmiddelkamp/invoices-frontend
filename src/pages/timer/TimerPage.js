@@ -3,6 +3,7 @@ import { getProjects } from '../../api/projects';
 import { useTimer } from '../../context/TimerContext';
 import { formatElapsed } from '../../utils/dates';
 import TaskBoard from '../../components/TaskBoard';
+import { confirm } from '../../services/dialog';
 
 export default function TimerPage() {
   const { session, elapsed, projectId, taskId, description, loading, setProjectId, setTaskId, changeDescription, start, stop, cancel } = useTimer();
@@ -30,7 +31,7 @@ export default function TimerPage() {
       const linkedTaskId = session?.task_id;
       await stop(projectId, description);
       setStopping(false);
-      if (linkedTaskId && window.confirm('Mark the linked task as done?')) {
+      if (linkedTaskId && await confirm('Mark the linked task as done?', { title: 'Task complete?', confirmLabel: 'Mark done', danger: false })) {
         setTaskUpdate({ id: linkedTaskId, patch: { status: 'done' } });
       }
     } catch (e) {
@@ -39,7 +40,7 @@ export default function TimerPage() {
   }
 
   async function handleCancel() {
-    if (!window.confirm('Discard this session without saving a time entry?')) return;
+    if (!await confirm('Discard this session without saving a time entry?', { title: 'Discard session', confirmLabel: 'Discard' })) return;
     try {
       await cancel();
       setStopping(false);

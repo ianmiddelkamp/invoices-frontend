@@ -4,6 +4,7 @@ import { getProjects } from '../../api/projects';
 import { getTimeEntries, deleteTimeEntry } from '../../api/timeEntries';
 import PageHeader from '../../components/PageHeader';
 import { formatDate } from '../../utils/dates';
+import { confirm } from '../../services/dialog';
 
 export default function TimesheetList() {
   const [projects, setProjects] = useState([]);
@@ -32,7 +33,7 @@ export default function TimesheetList() {
   }, [selectedProjectId]);
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this time entry?')) return;
+    if (!await confirm('Delete this time entry?')) return;
     try {
       await deleteTimeEntry(selectedProjectId, id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
