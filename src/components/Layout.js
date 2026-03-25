@@ -4,6 +4,8 @@ const navItems = [
   { to: '/clients', label: 'Clients' },
   { to: '/projects', label: 'Projects' },
   { to: '/timesheets', label: 'Timesheets' },
+  { to: '/invoices', label: 'Invoices' },
+  { to: '/settings', label: 'Settings' },
 ];
 
 export default function Layout() {

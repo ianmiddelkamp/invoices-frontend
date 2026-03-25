@@ -39,6 +39,7 @@ export default function ProjectList() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate / hr</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th className="px-6 py-3" />
               </tr>
@@ -46,13 +47,16 @@ export default function ProjectList() {
             <tbody className="divide-y divide-gray-200">
               {projects.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-400">No projects yet.</td>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400">No projects yet.</td>
                 </tr>
               )}
               {projects.map((project) => (
                 <tr key={project.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{project.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{project.client?.name || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {project.current_rate != null ? `$${parseFloat(project.current_rate).toFixed(2)}` : '—'}
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{project.description || '—'}</td>
                   <td className="px-6 py-4 text-right text-sm space-x-3">
                     <Link to={`/projects/${project.id}/edit`} className="text-indigo-600 hover:text-indigo-800">

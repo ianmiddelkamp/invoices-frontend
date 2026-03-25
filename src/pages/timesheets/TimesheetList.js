@@ -74,13 +74,14 @@ export default function TimesheetList() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                   <th className="px-6 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-400">No time entries for this project.</td>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">No time entries for this project.</td>
                   </tr>
                 )}
                 {entries.map((entry) => (
@@ -88,6 +89,17 @@ export default function TimesheetList() {
                     <td className="px-6 py-4 text-sm text-gray-900">{entry.date}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{parseFloat(entry.hours).toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{entry.description || '—'}</td>
+                    <td className="px-6 py-4 text-sm">
+                      {entry.invoice_line_item?.invoice
+                        ? <Link
+                            to={`/invoices/${entry.invoice_line_item.invoice.id}`}
+                            className="text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            {entry.invoice_line_item.invoice.number}
+                          </Link>
+                        : <span className="text-gray-400">Unbilled</span>
+                      }
+                    </td>
                     <td className="px-6 py-4 text-right text-sm space-x-3">
                       <Link
                         to={`/timesheets/${entry.id}/edit`}

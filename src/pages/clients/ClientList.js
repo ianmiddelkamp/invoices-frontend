@@ -37,21 +37,29 @@ export default function ClientList() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Default Rate</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {clients.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-400">No clients yet.</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">No clients yet.</td>
                 </tr>
               )}
               {clients.map((client) => (
                 <tr key={client.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{client.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{client.contact || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{client.contact_name || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{client.email1 || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{client.phone1 || '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {client.current_rate != null ? `$${parseFloat(client.current_rate).toFixed(2)}/hr` : '—'}
+                  </td>
                   <td className="px-6 py-4 text-right text-sm space-x-3">
                     <Link to={`/clients/${client.id}/edit`} className="text-indigo-600 hover:text-indigo-800">
                       Edit
