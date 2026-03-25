@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { clearToken } from '../api/index';
 
 const navItems = [
   { to: '/clients', label: 'Clients' },
@@ -9,6 +10,13 @@ const navItems = [
 ];
 
 export default function Layout() {
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    clearToken();
+    navigate('/login');
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -33,6 +41,14 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <div className="px-3 py-4 border-t border-gray-700">
+          <button
+            onClick={handleLogout}
+            className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import LoginPage from './pages/auth/LoginPage';
 import ClientList from './pages/clients/ClientList';
 import ClientForm from './pages/clients/ClientForm';
 import ProjectList from './pages/projects/ProjectList';
@@ -10,12 +11,19 @@ import InvoiceList from './pages/invoices/InvoiceList';
 import InvoiceForm from './pages/invoices/InvoiceForm';
 import InvoiceDetail from './pages/invoices/InvoiceDetail';
 import SettingsPage from './pages/settings/SettingsPage';
+import { getToken } from './api/index';
+
+function RequireAuth({ children }) {
+  return getToken() ? children : <Navigate to="/login" replace />;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/login" element={<LoginPage />} />
+
+        <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Navigate to="/clients" replace />} />
 
           <Route path="clients" element={<ClientList />} />
