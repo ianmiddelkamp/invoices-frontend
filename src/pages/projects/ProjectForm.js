@@ -5,6 +5,8 @@ import { getClients } from '../../api/clients';
 import { getProjectRate, setProjectRate, getClientRate } from '../../api/rates';
 import PageHeader from '../../components/PageHeader';
 import TaskBoard from '../../components/TaskBoard';
+import ProjectAttachments from '../../components/ProjectAttachments';
+import SowImport from '../../components/SowImport';
 
 const EMPTY = { name: '', client_id: '', description: '' };
 
@@ -14,6 +16,7 @@ export default function ProjectForm() {
   const isEdit = Boolean(id);
 
   const [form, setForm] = useState(EMPTY);
+  const [boardKey, setBoardKey] = useState(0);
   const [rate, setRateValue] = useState('');
   const [clients, setClients] = useState([]);
   const [error, setError] = useState(null);
@@ -149,7 +152,9 @@ export default function ProjectForm() {
         </div>
       </form>
 
-      {isEdit && <TaskBoard projectId={id} />}
+      {isEdit && <SowImport projectId={id} onImported={() => setBoardKey((k) => k + 1)} />}
+      {isEdit && <TaskBoard key={boardKey} projectId={id} />}
+      {isEdit && <ProjectAttachments projectId={id} />}
     </div>
   );
 }
