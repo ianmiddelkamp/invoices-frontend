@@ -1,15 +1,23 @@
 import { getToken } from './index';
 
-export const parseSow = (projectId, file) => {
+const base = () => process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const authHeader = () => ({ Authorization: `Bearer ${getToken()}` });
+
+export const parseSow = async (projectId, fileOrText, onStatus) => {
   const body = new FormData();
-  body.append('file', file);
-  return fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/projects/${projectId}/sow_import`, {
+  if (typeof fileOrText === 'string') {
+    body.append('text', fileOrText);
+  } else {
+    body.append('file', fileOrText);
+  }
+
+  onStatus?.('Analysing document…');
+  const res = await fetch(`${base()}/projects/${projectId}/sow_import`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: authHeader(),
     body,
-  }).then(async (res) => {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Import failed');
-    return data;
   });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Import failed');
+  return data;
 };
