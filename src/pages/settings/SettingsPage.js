@@ -9,6 +9,7 @@ const EMPTY = {
   address1: '', address2: '', city: '', state: '', postcode: '', country: '',
   hst_number: '', primary_color: '#4338ca',
   invoice_footer: '', estimate_footer: '', default_payment_terms: '',
+  tax_rate: '',
 };
 
 function Field({ label, name, value, onChange, type = 'text', placeholder, hint }) {
@@ -73,6 +74,7 @@ export default function SettingsPage() {
           invoice_footer:        p.invoice_footer        ?? '',
           estimate_footer:       p.estimate_footer       ?? '',
           default_payment_terms: p.default_payment_terms ?? '',
+          tax_rate:              p.tax_rate              ?? '',
         });
         setLogoDataUri(p.logo_data_uri || null);
       })
@@ -264,6 +266,25 @@ export default function SettingsPage() {
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-400">Used when a client has no specific terms set.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  name="tax_rate"
+                  value={form.tax_rate}
+                  onChange={handleChange}
+                  placeholder="0"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  className="w-28 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-500">%</span>
+              </div>
+              <p className="mt-1 text-xs text-gray-400">Stamped on each line item at generation time. Set to 0 to disable tax.</p>
             </div>
 
             <TextArea

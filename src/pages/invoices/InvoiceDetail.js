@@ -214,12 +214,34 @@ export default function InvoiceDetail() {
         </table>
 
         {/* Total */}
-        <div className="mt-auto flex justify-end pt-4">
-          <div className="text-right">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Total</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">${parseFloat(invoice.total || 0).toFixed(2)}</div>
-          </div>
-        </div>
+        {(() => {
+          const items = invoice.invoice_line_items || [];
+          const subtotal = items.reduce((s, i) => s + parseFloat(i.amount), 0);
+          const taxAmount = items.reduce((s, i) => s + parseFloat(i.amount) * parseFloat(i.tax_rate || 0) / 100, 0);
+          const taxRate = items.find(i => parseFloat(i.tax_rate) > 0)?.tax_rate;
+          return (
+            <div className="mt-auto flex justify-end pt-4">
+              <div className="text-right space-y-1">
+                {taxAmount > 0 && <>
+                  <div className="flex justify-between gap-16">
+                    <span className="text-xs text-gray-500 uppercase tracking-widest">Subtotal</span>
+                    <span className="text-sm text-gray-700">${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between gap-16">
+                    <span className="text-xs text-gray-500 uppercase tracking-widest">
+                      HST ({parseFloat(taxRate).toFixed(0)}%){business?.hst_number ? ` · Reg# ${business.hst_number}` : ''}
+                    </span>
+                    <span className="text-sm text-gray-700">${taxAmount.toFixed(2)}</span>
+                  </div>
+                </>}
+                <div className="flex justify-between gap-16 pt-1 border-t border-gray-200">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Total</span>
+                  <span className="text-2xl font-bold text-gray-900">${parseFloat(invoice.total || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Footer */}
         <div className="mt-10 pt-3 border-t border-gray-200 text-xs text-gray-400 leading-relaxed">
