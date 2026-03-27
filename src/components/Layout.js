@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { clearToken } from '../api/index';
 import TimerStatus from './Timer';
+import logo from '../logo_transparent.png';
 
 const navItems = [
   { to: '/clients',      label: 'Clients' },
@@ -25,8 +26,8 @@ export default function Layout() {
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-56 bg-gray-900 text-white flex flex-col shrink-0">
-        <div className="px-6 py-5 border-b border-gray-700">
-          <h1 className="text-lg font-semibold tracking-tight">Invoice App</h1>
+        <div className="px-4 py-4 border-b border-gray-700">
+          <img src={logo} alt="Solo" className="h-8 w-auto mx-auto" />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map(({ to, label }) => (

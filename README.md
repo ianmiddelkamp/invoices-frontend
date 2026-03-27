@@ -1,6 +1,6 @@
-# Invoice App — React Frontend
+# Solo — Frontend
 
-A React 19 single-page application for managing clients, projects, time tracking, task boards, invoices, and file attachments. Built as the frontend for the Invoice App Rails API.
+A React 19 single-page application for managing clients, projects, time tracking, charge codes, estimates, and invoices. Built as the frontend for the Solo Rails API.
 
 ## Tech Stack
 
@@ -8,6 +8,7 @@ A React 19 single-page application for managing clients, projects, time tracking
 - **React Router** 7 — client-side routing
 - **Tailwind CSS** 3 — utility-first styling
 - **@dnd-kit** — drag-to-reorder for task groups and tasks
+- **Luxon** — date/time handling
 - **Create React App** — build tooling
 
 ## Getting Started
@@ -45,13 +46,17 @@ REACT_APP_API_URL=http://your-api-host npm start
 | `/projects` | ProjectList | View all projects |
 | `/projects/new` | ProjectForm | Create a new project |
 | `/projects/:id/edit` | ProjectForm | Edit project, manage task board (with SOW import), manage attachments |
-| `/timesheets` | TimesheetList | View all time entries with invoice status and linked task |
-| `/timesheets/new` | TimesheetForm | Log a new time entry |
+| `/timesheets` | TimesheetList | View all time entries with filters, sorting, selection, and invoice actions |
+| `/timesheets/new` | TimesheetForm | Log a new time entry against a project or charge code |
 | `/timesheets/:id/edit` | TimesheetForm | Edit a time entry |
-| `/timer` | TimerPage | Start/stop timer, select project and task, manage task board |
+| `/timer` | TimerPage | Start/stop timer, select project and task |
 | `/invoices` | InvoiceList | View all invoices with status badges |
-| `/invoices/new` | InvoiceForm | Generate an invoice from time entries |
+| `/invoices/new` | InvoiceForm | Select unbilled entries and generate an invoice |
 | `/invoices/:id` | InvoiceDetail | View line items, send, download, or regenerate PDF |
+| `/estimates` | EstimateList | View all estimates |
+| `/estimates/new` | EstimateForm | Generate an estimate from project tasks |
+| `/estimates/:id` | EstimateDetail | View and send an estimate |
+| `/charge-codes` | ChargeCodesPage | Manage charge codes for non-project billable time |
 | `/settings` | SettingsPage | Configure business profile |
 
 ## Project Structure
@@ -62,14 +67,19 @@ src/
   components/       # Shared components (Layout, TaskBoard, Timer, dialogs, etc.)
   context/          # TimerContext — shared timer state across pages
   pages/
+    auth/
     clients/
+    charge-codes/
+    estimates/
+    invoices/
     projects/
+    settings/
     timesheets/
     timer/
-    invoices/
-    settings/
   services/
     dialog.js       # Promise-based confirm/alert dialog service
+  utils/
+    dates.js        # Date formatting and calculation helpers
   index.js
   App.js
 ```
@@ -80,41 +90,46 @@ src/
 |--------|--------|
 | `clients.js` | CRUD for clients |
 | `projects.js` | CRUD for projects |
-| `taskGroups.js` | CRUD and reorder for task groups |
-| `tasks.js` | CRUD and reorder for tasks (including cross-group moves) |
-| `timeEntries.js` | CRUD for time entries (nested under projects) |
-| `timer.js` | Start, stop, cancel, get session |
+| `tasks.js` | CRUD and reorder for task groups and tasks |
+| `timeEntries.js` | CRUD for time entries — project-scoped and top-level (charge code entries) |
+| `chargeCodes.js` | CRUD for charge codes |
+| `timer.js` | Start, stop, cancel, get current timer session |
 | `rates.js` | Get/set rates for clients and projects |
-| `invoices.js` | CRUD, PDF download, regenerate, send invoice |
+| `invoices.js` | CRUD, unbilled entry preview, PDF download, regenerate, send |
+| `estimates.js` | CRUD, PDF download, regenerate, send |
 | `attachments.js` | Upload, list, download, delete project attachments |
 | `sowImport.js` | Parse a SOW file via backend AI |
 | `businessProfile.js` | Get/update business profile |
 
 ## Key Features
 
-### Task Board
+### Charge Codes
 
-Projects have a task board available on both the project edit page and the timer page. Task groups can be reordered with ↑/↓ buttons and merged into the group above. Tasks can be dragged to reorder within a group or moved to a different group via drag-and-drop. Each task has a status selector (To do / In progress / Done).
-
-### SOW Import
-
-Upload a `.md`, `.txt`, or `.docx` Statement of Work (or paste text directly) from the task board. The backend AI parses it into a single task group with a flat task list — the AI picks the group title based on the document scope. Preview and edit before importing. Available on both the project page and the timer page. Powered by a local Ollama model — no data leaves your machine.
-
-### Timer Integration
-
-The timer page lets you select a project and a task before starting. Starting the timer automatically marks the selected task as In Progress. When the timer stops, you're prompted to mark the task as Done. The active task name is displayed in the timer widget.
-
-### Project Attachments
-
-Files (PDF, Word, images, text) can be attached to a project via drag-and-drop. Files are downloaded through authenticated streaming — no pre-signed URLs.
+Charge codes enable billing for work that isn't tied to a specific project — consultations, training, admin, code review, etc. Each code has a short identifier (e.g. `CONSULT`), an optional description, and an optional rate override (falls back to client rate). Managed at `/charge-codes`. Time entries can be logged against a charge code + client instead of a project.
 
 ### Timesheets
 
-Time entries show the linked task name. The form lets you assign a task from a grouped dropdown (organised by task group). Hours are rounded to 2 decimal places.
+Filter by client, project, billing status (all / unbilled / invoiced), and optionally hide charge code entries. All columns are sortable. Rows have checkboxes — selecting unbilled entries from the same client activates a **Create Invoice** button that carries the selection directly into the invoice flow. Invoiced entries are locked (no edit or delete).
 
 ### Invoice Generation
 
-Select a client and date range to generate an invoice from all unbilled time entries. Line item descriptions include the time entry description and linked task name.
+Two-step flow: select a client and date range, then review all unbilled entries (project and charge code) with checkboxes before generating. Pre-selection is supported when navigating from the timesheets page. The backend validates that submitted entries are not already billed.
+
+### Task Board
+
+Projects have a task board available on the project edit page and the timer page. Task groups can be reordered and tasks can be dragged between groups. Each task has a status selector (To do / In progress / Done) and optional time estimates.
+
+### SOW Import
+
+Upload a `.md`, `.txt`, or `.docx` Statement of Work (or paste text directly) to generate a task group with a flat task list. Preview and edit before importing. Powered by a configurable AI backend — Ollama, Groq, Anthropic, or Gemini.
+
+### Timer Integration
+
+Select a project and task before starting. Starting marks the task as In Progress. Stopping prompts to mark it Done. The active task is shown in the sidebar timer widget.
+
+### Project Attachments
+
+Files can be attached to a project via drag-and-drop or file picker. Downloaded through authenticated streaming.
 
 ### Dialog Service
 
