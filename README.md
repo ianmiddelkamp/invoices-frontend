@@ -1,5 +1,7 @@
 # Solo — Frontend
 
+![Solo](src/logo.png)
+
 A React 19 single-page application for managing clients, projects, time tracking, charge codes, estimates, and invoices. Built as the frontend for the Solo Rails API.
 
 ## Tech Stack
