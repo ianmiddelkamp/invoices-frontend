@@ -68,10 +68,16 @@ export function TimerProvider({ children }) {
     debounceRef.current = setTimeout(() => updateTimer(value), 800);
   }
 
+  async function replaceTask(tid) {
+    const updated = await updateTimer(description, tid);
+    setSession(updated);
+    setTaskId(updated.task_id || null);
+  }
+
   return (
     <TimerContext.Provider value={{
       session, elapsed, projectId, taskId, description, loading,
-      setProjectId, setTaskId, changeDescription,
+      setProjectId, setTaskId, changeDescription, replaceTask,
       start, stop, cancel,
     }}>
       {children}

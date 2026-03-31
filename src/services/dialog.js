@@ -7,6 +7,13 @@ export function _register(show) {
   _show = show;
 }
 
+export function listSelection(message, title, options){
+  if(!options || options.length === 0) return Promise.reject(new Error('No options provided for listSelection'));
+  return new Promise((resolve) => {
+    _resolve = resolve;
+    _show({ type: 'list', message, title, options });
+  });
+}
 export function confirm(message, { title, confirmLabel = 'Confirm', danger = true } = {}) {
   return new Promise((resolve) => {
     _resolve = resolve;

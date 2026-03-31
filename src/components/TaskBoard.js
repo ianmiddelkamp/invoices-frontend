@@ -371,16 +371,19 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
   // Apply external status patches (e.g. timer start → in_progress, stop → done)
   useEffect(() => {
     if (!taskUpdate) return;
-    const taskId = Number(taskUpdate.id);
-    setGroups((prev) => {
-      let groupId = null;
-      const next = prev.map((g) => {
-        const task = g.tasks.find((t) => t.id === taskId);
-        if (task) groupId = g.id;
-        return { ...g, tasks: g.tasks.map((t) => (t.id === taskId ? { ...t, ...taskUpdate.patch } : t)) };
+    const updates = Array.isArray(taskUpdate) ? taskUpdate : [taskUpdate];
+    updates.forEach((u) => {
+      const taskId = Number(u.id);
+      setGroups((prev) => {
+        let groupId = null;
+        const next = prev.map((g) => {
+          const task = g.tasks.find((t) => t.id === taskId);
+          if (task) groupId = g.id;
+          return { ...g, tasks: g.tasks.map((t) => (t.id === taskId ? { ...t, ...u.patch } : t)) };
+        });
+        if (groupId) updateTask(projectId, groupId, taskId, u.patch).catch(() => {});
+        return next;
       });
-      if (groupId) updateTask(projectId, groupId, taskId, taskUpdate.patch).catch(() => {});
-      return next;
     });
   }, [taskUpdate]);
 

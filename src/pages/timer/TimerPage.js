@@ -3,14 +3,16 @@ import { getProjects } from '../../api/projects';
 import { useTimer } from '../../context/TimerContext';
 import { formatElapsed } from '../../utils/dates';
 import TaskBoard from '../../components/TaskBoard';
-import { confirm } from '../../services/dialog';
+import { confirm, listSelection } from '../../services/dialog';
+
 
 export default function TimerPage() {
-  const { session, elapsed, projectId, taskId, description, loading, setProjectId, setTaskId, changeDescription, start, stop, cancel } = useTimer();
+  const { session, elapsed, projectId, taskId, description, loading, setProjectId, setTaskId, changeDescription, replaceTask, start, stop, cancel } = useTimer();
   const [projects, setProjects] = useState([]);
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState(null);
   const [taskUpdate, setTaskUpdate] = useState(null);
+
 
   useEffect(() => {
     getProjects().then(setProjects).catch((e) => setError(e.message));
@@ -28,7 +30,7 @@ export default function TimerPage() {
 
   async function handleStop() {
     try {
-      const linkedTaskId = session?.task_id;
+      const linkedTaskId = taskId
       await stop(projectId, description);
       setStopping(false);
       if (linkedTaskId && await confirm('Mark the linked task as done?', { title: 'Task complete?', confirmLabel: 'Mark done', danger: false })) {
@@ -47,6 +49,40 @@ export default function TimerPage() {
     } catch (e) {
       setError(e.message);
     }
+  }
+
+  async function handleTaskSelect(id){
+  
+    if(session && taskId){
+      const options = [
+        { label: 'Keep current task', value: "KEEP" },
+        { label: 'Replace current task', value: "REPLACE" },
+        { label: "Start new session", value: "NEW" }
+      ];
+      const response = await listSelection("Start New Session?", "Please Confirm", options);    
+      if(response === "KEEP"){
+        return;
+      }else if(response === "REPLACE"){
+        await replaceTask(id);
+        setTaskUpdate([
+          { id: taskId, patch: { status: 'todo' } },
+          { id: id, patch: { status: 'in_progress' } },
+        ]);
+      }else if(response === "NEW"){
+        setTaskUpdate({ id: taskId, patch: { status: 'done' } });
+        await stop(projectId, description);
+        await start(projectId, id);
+        setTaskUpdate({ id: id, patch: { status: 'in_progress' } });
+      }
+    } else {
+      if (session) {
+        await replaceTask(id);
+        setTaskUpdate({ id, patch: { status: 'in_progress' } });
+      } else {
+        setTaskId(id);
+      }
+    }
+   
   }
 
   if (loading) return <div className="p-8 text-gray-500">Loading…</div>;
@@ -171,7 +207,7 @@ export default function TimerPage() {
             <TaskBoard
               projectId={projectId}
               selectedTaskId={taskId}
-              onSelectTask={(id) => setTaskId(id)}
+              onSelectTask={(id) => handleTaskSelect(id)}
               taskUpdate={taskUpdate}
             />
           </div>

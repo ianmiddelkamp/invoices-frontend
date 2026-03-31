@@ -14,10 +14,10 @@ export const stopTimer = (projectId, description) =>
     body: JSON.stringify({ project_id: projectId, description }),
   });
 
-export const updateTimer = (description) =>
+export const updateTimer = (description, taskId) =>
   apiFetch('/timer', {
     method: 'PATCH',
-    body: JSON.stringify({ description }),
+    body: JSON.stringify({ description, ...(taskId !== undefined && { task_id: taskId }) }),
   });
 
 export const cancelTimer = () => apiFetch('/timer', { method: 'DELETE' });
