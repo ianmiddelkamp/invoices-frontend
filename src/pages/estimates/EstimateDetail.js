@@ -219,7 +219,8 @@ export default function EstimateDetail() {
           <tbody>
             {estimate.estimate_line_items?.map((item, i) => {
               const done = item.task?.status === 'done';
-              const actual = item.task?.actual_hours && parseFloat(item.task.actual_hours) > 0 ? parseFloat(item.task.actual_hours) : null;
+              const actualHours = done ? parseFloat(item.task?.actual_hours || 0) : null;
+              const displayAmount = done ? (actualHours * parseFloat(item.rate)) : parseFloat(item.amount);
               return (
                 <tr key={item.id} style={i % 2 === 1 ? { backgroundColor: '#f9fafb' } : {}}>
                   <td className="px-3 py-2 text-sm text-gray-700 border-b border-gray-200">
@@ -233,16 +234,14 @@ export default function EstimateDetail() {
                     </div>
                   </td>
                   <td className="px-3 py-2 text-sm text-right border-b border-gray-200">
-                    {done && actual != null ? (
-                      <span className="text-gray-500">est. {parseFloat(item.hours).toFixed(2)} → <strong className="text-gray-900">{actual.toFixed(2)}</strong></span>
-                    ) : done ? (
-                      <span className="text-gray-500">est. {parseFloat(item.hours).toFixed(2)} → <strong className="text-gray-900">0.00</strong></span>
+                    {done ? (
+                      <span className="text-gray-500">est. {parseFloat(item.hours).toFixed(2)} → <strong className="text-gray-900">{actualHours.toFixed(2)}</strong></span>
                     ) : (
                       <span className="text-gray-900">{parseFloat(item.hours).toFixed(2)}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-sm text-gray-900 text-right border-b border-gray-200">${parseFloat(item.rate).toFixed(2)}</td>
-                  <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right border-b border-gray-200">${parseFloat(item.effective_amount ?? item.amount).toFixed(2)}</td>
+                  <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right border-b border-gray-200">${displayAmount.toFixed(2)}</td>
                 </tr>
               );
             })}
@@ -252,8 +251,9 @@ export default function EstimateDetail() {
         {/* Total */}
         {(() => {
           const items = estimate.estimate_line_items || [];
-          const subtotal = items.reduce((s, i) => s + parseFloat(i.effective_amount ?? i.amount), 0);
-          const taxAmount = items.reduce((s, i) => s + parseFloat(i.effective_amount ?? i.amount) * parseFloat(i.tax_rate || 0) / 100, 0);
+          const itemAmount = (i) => i.task?.status === 'done' ? parseFloat(i.task?.actual_hours || 0) * parseFloat(i.rate) : parseFloat(i.amount);
+          const subtotal = items.reduce((s, i) => s + itemAmount(i), 0);
+          const taxAmount = items.reduce((s, i) => s + itemAmount(i) * parseFloat(i.tax_rate || 0) / 100, 0);
           const taxRate = items.find(i => parseFloat(i.tax_rate) > 0)?.tax_rate;
           return (
             <div className="mt-auto flex justify-end pt-4">
@@ -272,7 +272,7 @@ export default function EstimateDetail() {
                 </>}
                 <div className="flex justify-between gap-16 pt-1 border-t border-gray-200">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Estimated Total</span>
-                  <span className="text-2xl font-bold text-gray-900">${parseFloat(estimate.total || 0).toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-gray-900">${(subtotal + taxAmount).toFixed(2)}</span>
                 </div>
               </div>
             </div>
