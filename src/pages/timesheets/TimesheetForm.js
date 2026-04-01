@@ -24,7 +24,6 @@ export default function TimesheetForm() {
 
   // Detect mode from location state or default to project
   const initialMode = location.state?.chargeCodeId ? 'charge_code' : 'project';
-  const initialClient = location.state?.clientId
 
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState(
@@ -46,12 +45,7 @@ export default function TimesheetForm() {
   // Load reference data
   useEffect(() => {
     getProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (!isEdit && mode === 'project' && !form.project_id && ps.length > 0) {
-          setForm((prev) => ({ ...prev, project_id: String(ps[0].id) }));
-        }
-      })
+      .then(setProjects)
       .catch((e) => setError(e.message));
 
     getClients().then(setClients).catch(() => {});
@@ -127,7 +121,15 @@ export default function TimesheetForm() {
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
       // Clear project when client changes
-      if (name === 'client_id') updated.project_id = '';
+      if (name === 'client_id') {
+        updated.project_id = '';
+      } else if (name === 'project_id' && !prev.client_id ){
+        let project = projects.find( p => p.id === Number(value))
+        if(project){
+          updated.client_id = String(project.client_id)
+        }
+      
+      }
       const date = name === 'date' ? value : updated.date;
       const start = name === 'start_time' ? value : updated.start_time;
       const stop = name === 'stop_time' ? value : updated.stop_time;
