@@ -7,6 +7,7 @@ import {
   useSensors,
   DragOverlay,
 } from '@dnd-kit/core';
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -28,21 +29,49 @@ import {
 } from '../api/tasks';
 import { confirm } from '../services/dialog';
 import SowImport from './SowImport';
+import type { Task, TaskGroup } from '../types';
 
-const STATUSES = ['todo', 'in_progress', 'done'];
-const STATUS_LABEL = { todo: 'To do', in_progress: 'In progress', done: 'Done' };
-const STATUS_ACTIVE_CLASS = {
+const STATUSES = ['todo', 'in_progress', 'done'] as const;
+type Status = typeof STATUSES[number];
+
+const STATUS_LABEL: Record<Status, string> = {
+  todo: 'To do',
+  in_progress: 'In progress',
+  done: 'Done',
+};
+const STATUS_ACTIVE_CLASS: Record<Status, string> = {
   todo: 'bg-gray-200 text-gray-700',
   in_progress: 'bg-blue-100 text-blue-700',
   done: 'bg-green-100 text-green-700',
 };
 
-function StatusSelect({ status, onChange }) {
+interface DragTaskData {
+  type: 'task';
+  task: Task;
+  groupId: number;
+}
+interface DragGroupData {
+  type: 'group';
+  group: TaskGroup;
+}
+type DragData = DragTaskData | DragGroupData;
+
+interface TaskPatch {
+  id: number;
+  patch: Partial<Task>;
+}
+
+interface StatusSelectProps {
+  status: string;
+  onChange: (value: string) => void;
+}
+
+function StatusSelect({ status, onChange }: StatusSelectProps) {
   return (
     <select
       value={status}
       onChange={(e) => onChange(e.target.value)}
-      className={`text-xs font-medium rounded px-1.5 py-0.5 border-0 outline-none cursor-pointer ${STATUS_ACTIVE_CLASS[status]}`}
+      className={`text-xs font-medium rounded px-1.5 py-0.5 border-0 outline-none cursor-pointer ${STATUS_ACTIVE_CLASS[status as Status] ?? ''}`}
     >
       {STATUSES.map((s) => (
         <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -51,13 +80,26 @@ function StatusSelect({ status, onChange }) {
   );
 }
 
-function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, selected, dragHandleProps, isDragging }) {
+interface TaskItemProps {
+  task: Task;
+  projectId: number;
+  groupId: number;
+  onUpdate: (id: number, patch: Partial<Task>) => void;
+  onDelete: (id: number) => void;
+  onSelect?: ((id: number | null) => void) | null;
+  selected: boolean;
+  attributes: Record<string, unknown>;
+  listeners: Record<string, unknown> | undefined;
+  isDragging: boolean;
+}
+
+function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, selected, attributes, listeners, isDragging }: TaskItemProps) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [editingEstimate, setEditingEstimate] = useState(false);
   const [estimate, setEstimate] = useState(task.estimated_hours != null ? String(task.estimated_hours) : '');
-  const inputRef = useRef(null);
-  const estimateRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const estimateRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editing) inputRef.current?.focus();
@@ -75,7 +117,7 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
     onUpdate(task.id, { title: title.trim() });
   }
 
-  async function handleStatusChange(next) {
+  async function handleStatusChange(next: string) {
     await updateTask(projectId, groupId, task.id, { status: next });
     onUpdate(task.id, { status: next });
   }
@@ -83,9 +125,12 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
   async function commitEstimate() {
     setEditingEstimate(false);
     const parsed = estimate.trim() === '' ? null : parseFloat(estimate);
-    const current = task.estimated_hours != null ? parseFloat(task.estimated_hours) : null;
+    const current = task.estimated_hours != null ? parseFloat(String(task.estimated_hours)) : null;
     if (parsed === current) return;
-    if (estimate.trim() !== '' && (isNaN(parsed) || parsed <= 0)) { setEstimate(current != null ? String(current) : ''); return; }
+    if (estimate.trim() !== '' && (parsed === null || isNaN(parsed) || parsed <= 0)) {
+      setEstimate(current != null ? String(current) : '');
+      return;
+    }
     await updateTask(projectId, groupId, task.id, { estimated_hours: parsed });
     onUpdate(task.id, { estimated_hours: parsed });
   }
@@ -100,7 +145,8 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
     <div className={`rounded px-2 py-2 group transition-colors ${selected ? 'bg-indigo-50 ring-1 ring-indigo-300' : ''} ${isDragging ? 'opacity-40' : ''}`}>
       <div className="flex items-center gap-2">
         <button
-          {...dragHandleProps}
+          {...(attributes as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+          {...(listeners as React.ButtonHTMLAttributes<HTMLButtonElement>)}
           className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0"
           aria-label="Drag to reorder"
         >
@@ -112,7 +158,10 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={commitTitle}
-            onKeyDown={(e) => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitle(task.title); setEditing(false); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitTitle();
+              if (e.key === 'Escape') { setTitle(task.title); setEditing(false); }
+            }}
             className="flex-1 text-sm border-b border-indigo-400 outline-none bg-transparent"
           />
         ) : (
@@ -153,7 +202,10 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
             value={estimate}
             onChange={(e) => setEstimate(e.target.value)}
             onBlur={commitEstimate}
-            onKeyDown={(e) => { if (e.key === 'Enter') commitEstimate(); if (e.key === 'Escape') { setEstimate(task.estimated_hours != null ? String(task.estimated_hours) : ''); setEditingEstimate(false); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEstimate();
+              if (e.key === 'Escape') { setEstimate(task.estimated_hours != null ? String(task.estimated_hours) : ''); setEditingEstimate(false); }
+            }}
             placeholder="0.00"
             className="w-16 text-xs border-b border-indigo-400 outline-none bg-transparent text-gray-700"
           />
@@ -163,12 +215,12 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
             className="text-xs text-gray-400 hover:text-indigo-600"
             title="Set estimate"
           >
-            {task.estimated_hours != null ? `est. ${parseFloat(task.estimated_hours)}h` : '+ est.'}
+            {task.estimated_hours != null ? `est. ${parseFloat(String(task.estimated_hours))}h` : '+ est.'}
           </button>
         )}
         {task.actual_hours > 0 && (
           <span className="text-xs text-gray-500" title="Actual time logged">
-            actual {parseFloat(task.actual_hours)}h
+            actual {parseFloat(String(task.actual_hours))}h
           </span>
         )}
         {task.last_entry_date && (
@@ -181,10 +233,20 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
   );
 }
 
-function SortableTask({ task, projectId, groupId, onUpdate, onDelete, onSelect, selected }) {
+interface SortableTaskProps {
+  task: Task;
+  projectId: number;
+  groupId: number;
+  onUpdate: (id: number, patch: Partial<Task>) => void;
+  onDelete: (id: number) => void;
+  onSelect?: ((id: number | null) => void) | null;
+  selected: boolean;
+}
+
+function SortableTask({ task, projectId, groupId, onUpdate, onDelete, onSelect, selected }: SortableTaskProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.id}`,
-    data: { type: 'task', task, groupId },
+    data: { type: 'task', task, groupId } satisfies DragTaskData,
   });
 
   const style = {
@@ -202,20 +264,36 @@ function SortableTask({ task, projectId, groupId, onUpdate, onDelete, onSelect, 
         onDelete={onDelete}
         onSelect={onSelect}
         selected={selected}
-        dragHandleProps={{ ...attributes, ...listeners }}
+        attributes={attributes as Record<string, unknown>}
+        listeners={listeners as Record<string, unknown> | undefined}
         isDragging={isDragging}
       />
     </div>
   );
 }
 
-function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMergeUp, onMoveUp, onMoveDown, onAddTask, onUpdateTask, onDeleteTask, onSelectTask, selectedTaskId }) {
+interface TaskGroupCardProps {
+  group: TaskGroup;
+  projectId: number;
+  onUpdateGroup: (id: number, patch: Partial<TaskGroup>) => void;
+  onDeleteGroup: (id: number) => void;
+  onMergeUp: (() => void) | null;
+  onMoveUp: (() => void) | null;
+  onMoveDown: (() => void) | null;
+  onAddTask: (groupId: number, task: Task) => void;
+  onUpdateTask: (groupId: number, taskId: number, patch: Partial<Task>) => void;
+  onDeleteTask: (groupId: number, taskId: number) => void;
+  onSelectTask?: ((id: number | null) => void) | null;
+  selectedTaskId?: number | null;
+}
+
+function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMergeUp, onMoveUp, onMoveDown, onAddTask, onUpdateTask, onDeleteTask, onSelectTask, selectedTaskId }: TaskGroupCardProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(group.title);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [addingTask, setAddingTask] = useState(false);
-  const titleRef = useRef(null);
-  const newTaskRef = useRef(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const newTaskRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingTitle) titleRef.current?.focus();
@@ -239,11 +317,11 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
     onDeleteGroup(group.id);
   }
 
-  async function submitNewTask(e) {
+  async function submitNewTask(e: React.FormEvent) {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
     const task = await createTask(projectId, group.id, { title: newTaskTitle.trim() });
-    onAddTask(group.id, task);
+    if (task) onAddTask(group.id, task);
     setNewTaskTitle('');
   }
 
@@ -251,16 +329,15 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `group-drop-${group.id}`,
-    data: { type: 'group', group },
+    data: { type: 'group', group } satisfies DragGroupData,
   });
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-      {/* Group header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
         <div className="flex flex-col">
-          <button onClick={onMoveUp} disabled={!onMoveUp} className="text-gray-300 hover:text-gray-500 disabled:opacity-0 leading-none text-xs" aria-label="Move group up">▲</button>
-          <button onClick={onMoveDown} disabled={!onMoveDown} className="text-gray-300 hover:text-gray-500 disabled:opacity-0 leading-none text-xs" aria-label="Move group down">▼</button>
+          <button onClick={onMoveUp ?? undefined} disabled={!onMoveUp} className="text-gray-300 hover:text-gray-500 disabled:opacity-0 leading-none text-xs" aria-label="Move group up">▲</button>
+          <button onClick={onMoveDown ?? undefined} disabled={!onMoveDown} className="text-gray-300 hover:text-gray-500 disabled:opacity-0 leading-none text-xs" aria-label="Move group down">▼</button>
         </div>
         {editingTitle ? (
           <input
@@ -268,7 +345,10 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={commitGroupTitle}
-            onKeyDown={(e) => { if (e.key === 'Enter') commitGroupTitle(); if (e.key === 'Escape') { setTitle(group.title); setEditingTitle(false); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitGroupTitle();
+              if (e.key === 'Escape') { setTitle(group.title); setEditingTitle(false); }
+            }}
             className="flex-1 font-semibold text-sm border-b border-indigo-400 outline-none bg-transparent"
           />
         ) : (
@@ -282,9 +362,9 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
         <span className="text-xs text-gray-400">
           {group.tasks.length}
           {(() => {
-            const est = parseFloat(group.estimated_hours_total) || 0;
-            const actual = parseFloat(group.actual_hours_total) || 0;
-            const fmt = (n) => n % 1 === 0 ? `${n}h` : `${n.toFixed(2)}h`;
+            const est = parseFloat(String(group.estimated_hours_total)) || 0;
+            const actual = parseFloat(String(group.actual_hours_total)) || 0;
+            const fmt = (n: number) => n % 1 === 0 ? `${n}h` : `${n.toFixed(2)}h`;
             if (actual > 0 && est > 0) return ` · ${fmt(actual)} / ${fmt(est)}`;
             if (est > 0) return ` · est. ${fmt(est)}`;
             if (actual > 0) return ` · ${fmt(actual)}`;
@@ -310,7 +390,6 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
         </button>
       </div>
 
-      {/* Tasks */}
       <div ref={setDropRef} className={`px-1 py-1 rounded-b-lg transition-colors ${isOver ? 'bg-indigo-50' : ''}`}>
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {group.tasks.map((task) => (
@@ -327,7 +406,6 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
           ))}
         </SortableContext>
 
-        {/* Add task */}
         {addingTask ? (
           <form onSubmit={submitNewTask} className="flex items-center gap-2 px-2 py-1">
             <input
@@ -355,27 +433,32 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
   );
 }
 
+interface TaskBoardProps {
+  projectId: number;
+  selectedTaskId?: number | null;
+  onSelectTask?: ((id: number | null) => void) | null;
+  taskUpdate?: TaskPatch | TaskPatch[] | null;
+}
 
-export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, taskUpdate }) {
-  const [groups, setGroups] = useState([]);
+export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, taskUpdate }: TaskBoardProps) {
+  const [groups, setGroups] = useState<TaskGroup[]>([]);
   const [newGroupTitle, setNewGroupTitle] = useState('');
-  const [activeTask, setActiveTask] = useState(null);
+  const [activeTask, setActiveTask] = useState<DragData | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
     if (!projectId) return;
-    getTaskGroups(projectId).then(setGroups);
+    getTaskGroups(projectId).then((data) => { if (data) setGroups(data); });
   }, [projectId]);
 
-  // Apply external status patches (e.g. timer start → in_progress, stop → done)
   useEffect(() => {
     if (!taskUpdate) return;
     const updates = Array.isArray(taskUpdate) ? taskUpdate : [taskUpdate];
     updates.forEach((u) => {
       const taskId = Number(u.id);
       setGroups((prev) => {
-        let groupId = null;
+        let groupId: number | null = null;
         const next = prev.map((g) => {
           const task = g.tasks.find((t) => t.id === taskId);
           if (task) groupId = g.id;
@@ -387,23 +470,23 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     });
   }, [taskUpdate]);
 
-  async function addGroup(e) {
+  async function addGroup(e: React.FormEvent) {
     e.preventDefault();
     if (!newGroupTitle.trim()) return;
     const group = await createTaskGroup(projectId, { title: newGroupTitle.trim() });
-    setGroups((prev) => [...prev, { ...group, tasks: [] }]);
+    if (group) setGroups((prev) => [...prev, { ...group, tasks: [] }]);
     setNewGroupTitle('');
   }
 
-  function handleUpdateGroup(id, patch) {
+  function handleUpdateGroup(id: number, patch: Partial<TaskGroup>) {
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
   }
 
-  function handleDeleteGroup(id) {
+  function handleDeleteGroup(id: number) {
     setGroups((prev) => prev.filter((g) => g.id !== id));
   }
 
-  async function handleMoveUp(id) {
+  async function handleMoveUp(id: number) {
     const idx = groups.findIndex((g) => g.id === id);
     if (idx <= 0) return;
     const reordered = arrayMove(groups, idx, idx - 1);
@@ -411,7 +494,7 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     await reorderTaskGroups(projectId, reordered.map((g) => g.id));
   }
 
-  async function handleMoveDown(id) {
+  async function handleMoveDown(id: number) {
     const idx = groups.findIndex((g) => g.id === id);
     if (idx === -1 || idx >= groups.length - 1) return;
     const reordered = arrayMove(groups, idx, idx + 1);
@@ -419,7 +502,7 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     await reorderTaskGroups(projectId, reordered.map((g) => g.id));
   }
 
-  async function handleMergeUp(id) {
+  async function handleMergeUp(id: number) {
     const idx = groups.findIndex((g) => g.id === id);
     if (idx <= 0) return;
     const target = groups[idx - 1];
@@ -436,13 +519,13 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     await deleteTaskGroup(projectId, src.id);
   }
 
-  function handleAddTask(groupId, task) {
+  function handleAddTask(groupId: number, task: Task) {
     setGroups((prev) =>
       prev.map((g) => (g.id === groupId ? { ...g, tasks: [...g.tasks, task] } : g))
     );
   }
 
-  function handleUpdateTask(groupId, taskId, patch) {
+  function handleUpdateTask(groupId: number, taskId: number, patch: Partial<Task>) {
     setGroups((prev) =>
       prev.map((g) =>
         g.id === groupId
@@ -452,7 +535,7 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     );
   }
 
-  function handleDeleteTask(groupId, taskId) {
+  function handleDeleteTask(groupId: number, taskId: number) {
     setGroups((prev) =>
       prev.map((g) =>
         g.id === groupId ? { ...g, tasks: g.tasks.filter((t) => t.id !== taskId) } : g
@@ -460,32 +543,30 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     );
   }
 
-  function handleDragStart(event) {
-    setActiveTask(event.active.data.current);
+  function handleDragStart(event: DragStartEvent) {
+    setActiveTask(event.active.data.current as DragData);
   }
 
-  async function handleDragEnd(event) {
+  async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveTask(null);
     if (!over || active.id === over.id) return;
 
-    const activeData = active.data.current;
-    const overData = over.data.current;
+    const activeData = active.data.current as DragData;
+    const overData = over.data.current as DragData | undefined;
 
     if (activeData.type === 'task') {
-      // Find source group
       const srcGroupId = activeData.groupId;
       const srcGroup = groups.find((g) => g.id === srcGroupId);
       if (!srcGroup) return;
 
-      // Find target group (could be over a task or a group header)
       let dstGroupId = srcGroupId;
       if (overData?.type === 'task') dstGroupId = overData.groupId;
       if (overData?.type === 'group') dstGroupId = overData.group.id;
 
       if (srcGroupId === dstGroupId) {
-        // Same-group reorder
         const group = groups.find((g) => g.id === srcGroupId);
+        if (!group) return;
         const oldIdx = group.tasks.findIndex((t) => `task-${t.id}` === active.id);
         const newIdx = group.tasks.findIndex((t) => `task-${t.id}` === over.id);
         if (oldIdx === -1 || newIdx === -1) return;
@@ -495,11 +576,11 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
         );
         await reorderTasks(projectId, srcGroupId, reordered.map((t) => t.id), srcGroupId);
       } else {
-        // Cross-group move
         const task = srcGroup.tasks.find((t) => `task-${t.id}` === active.id);
         if (!task) return;
         const newSrcTasks = srcGroup.tasks.filter((t) => t.id !== task.id);
         const dstGroup = groups.find((g) => g.id === dstGroupId);
+        if (!dstGroup) return;
         const overTaskIdx = dstGroup.tasks.findIndex((t) => `task-${t.id}` === over.id);
         const newDstTasks = [...dstGroup.tasks];
         newDstTasks.splice(overTaskIdx >= 0 ? overTaskIdx : newDstTasks.length, 0, task);
@@ -554,7 +635,6 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
         </DragOverlay>
       </DndContext>
 
-      {/* Add group */}
       <form onSubmit={addGroup} className="mt-4 flex gap-2">
         <input
           value={newGroupTitle}
@@ -571,7 +651,7 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
         </button>
       </form>
 
-      <SowImport projectId={projectId} onImported={() => getTaskGroups(projectId).then(setGroups)} />
+      <SowImport projectId={projectId} onImported={() => getTaskGroups(projectId).then((data) => { if (data) setGroups(data); })} />
     </div>
   );
 }

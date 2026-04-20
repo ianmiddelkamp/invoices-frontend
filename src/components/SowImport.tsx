@@ -2,17 +2,27 @@ import { useRef, useState, useEffect } from 'react';
 import { parseSow } from '../api/sowImport';
 import { createTaskGroup, createTask } from '../api/tasks';
 
-export default function SowImport({ projectId, onImported }) {
+interface SowPreview {
+  title: string;
+  tasks: { title: string }[];
+}
+
+interface Props {
+  projectId: number;
+  onImported?: () => void;
+}
+
+export default function SowImport({ projectId, onImported }: Props) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState('file'); // 'file' | 'text'
+  const [mode, setMode] = useState<'file' | 'text'>('file');
   const [pastedText, setPastedText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [parsingStatus, setParsingStatus] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [importing, setImporting] = useState(false);
-  const [preview, setPreview] = useState(null); // parsed groups before commit
-  const [error, setError] = useState(null);
-  const inputRef = useRef(null);
+  const [preview, setPreview] = useState<SowPreview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!parsing) { setElapsed(0); return; }
@@ -20,7 +30,7 @@ export default function SowImport({ projectId, onImported }) {
     return () => clearInterval(t);
   }, [parsing]);
 
-  async function handleFile(file) {
+  async function handleFile(file: File | undefined) {
     if (!file) return;
     await submit(file);
     if (inputRef.current) inputRef.current.value = '';
@@ -31,7 +41,7 @@ export default function SowImport({ projectId, onImported }) {
     await submit(pastedText);
   }
 
-  async function submit(fileOrText) {
+  async function submit(fileOrText: File | string) {
     setParsing(true);
     setParsingStatus('');
     setError(null);
@@ -40,25 +50,25 @@ export default function SowImport({ projectId, onImported }) {
       const group = await parseSow(projectId, fileOrText, setParsingStatus);
       setPreview(group);
     } catch (e) {
-      setError(e.message);
+      setError((e as Error).message);
     } finally {
       setParsing(false);
     }
   }
 
-  function removeTask(taskIdx) {
-    setPreview((prev) => ({ ...prev, tasks: prev.tasks.filter((_, j) => j !== taskIdx) }));
+  function removeTask(taskIdx: number) {
+    setPreview((prev) => prev ? { ...prev, tasks: prev.tasks.filter((_, j) => j !== taskIdx) } : null);
   }
 
-  function updateGroupTitle(title) {
-    setPreview((prev) => ({ ...prev, title }));
+  function updateGroupTitle(title: string) {
+    setPreview((prev) => prev ? { ...prev, title } : null);
   }
 
-  function updateTaskTitle(taskIdx, title) {
-    setPreview((prev) => ({
+  function updateTaskTitle(taskIdx: number, title: string) {
+    setPreview((prev) => prev ? {
       ...prev,
       tasks: prev.tasks.map((t, j) => (j === taskIdx ? { ...t, title } : t)),
-    }));
+    } : null);
   }
 
   async function handleImport() {
@@ -67,6 +77,7 @@ export default function SowImport({ projectId, onImported }) {
     setError(null);
     try {
       const created = await createTaskGroup(projectId, { title: preview.title });
+      if (!created) return;
       for (const task of preview.tasks) {
         await createTask(projectId, created.id, { title: task.title });
       }
@@ -74,7 +85,7 @@ export default function SowImport({ projectId, onImported }) {
       setOpen(false);
       onImported?.();
     } catch (e) {
-      setError(e.message);
+      setError((e as Error).message);
     } finally {
       setImporting(false);
     }
@@ -135,7 +146,7 @@ export default function SowImport({ projectId, onImported }) {
                     type="file"
                     accept=".md,.txt,.docx"
                     className="hidden"
-                    onChange={(e) => handleFile(e.target.files[0])}
+                    onChange={(e) => handleFile(e.target.files?.[0])}
                   />
                 </div>
               ) : (
@@ -181,7 +192,7 @@ export default function SowImport({ projectId, onImported }) {
                   className="w-full font-semibold text-sm border-b border-gray-200 outline-none focus:border-indigo-400 bg-transparent py-0.5 mb-2"
                 />
                 <ul className="space-y-1">
-                  {(preview.tasks || []).map((task, ti) => (
+                  {preview.tasks.map((task, ti) => (
                     <li key={ti} className="flex items-center gap-2">
                       <span className="text-gray-300 text-xs">—</span>
                       <input
@@ -203,10 +214,10 @@ export default function SowImport({ projectId, onImported }) {
               <div className="flex items-center gap-3 mt-4">
                 <button
                   onClick={handleImport}
-                  disabled={importing || !preview.tasks?.length}
+                  disabled={importing || !preview.tasks.length}
                   className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                 >
-                  {importing ? 'Importing…' : `Import ${preview.tasks?.length ?? 0} task${preview.tasks?.length !== 1 ? 's' : ''}`}
+                  {importing ? 'Importing…' : `Import ${preview.tasks.length} task${preview.tasks.length !== 1 ? 's' : ''}`}
                 </button>
                 <button
                   onClick={() => setPreview(null)}
