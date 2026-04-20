@@ -4,18 +4,33 @@ import { getClients } from '../../api/clients';
 import { getUnbilledEntries, createInvoice } from '../../api/invoices';
 import PageHeader from '../../components/PageHeader';
 import { today, firstOfMonth, formatDate } from '../../utils/dates';
+import type { Client, TimeEntry } from '../../types';
+
+interface LocationState {
+  entries: TimeEntry[];
+  clientId: string;
+}
+
+interface EntryGroup {
+  label: string;
+  entries: TimeEntry[];
+}
 
 export default function InvoiceForm() {
   const navigate = useNavigate();
   const location = useLocation();
-  const preloaded = location.state; // { entries, clientId } when coming from TimesheetList
+  const preloaded = location.state as LocationState | null;
 
-  const [clients, setClients] = useState([]);
-  const [form, setForm] = useState({ client_id: preloaded?.clientId || '', start_date: firstOfMonth(), end_date: today() });
-  const [step, setStep] = useState(preloaded?.entries ? 'select' : 'setup');
-  const [entries, setEntries] = useState(preloaded?.entries || []);
-  const [selected, setSelected] = useState(new Set(preloaded?.entries?.map((e) => e.id) || []));
-  const [error, setError] = useState(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [form, setForm] = useState({
+    client_id: preloaded?.clientId || '',
+    start_date: firstOfMonth(),
+    end_date: today(),
+  });
+  const [step, setStep] = useState<'setup' | 'select'>(preloaded?.entries ? 'select' : 'setup');
+  const [entries, setEntries] = useState<TimeEntry[]>(preloaded?.entries || []);
+  const [selected, setSelected] = useState<Set<number>>(new Set(preloaded?.entries?.map((e) => e.id) || []));
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -25,24 +40,25 @@ export default function InvoiceForm() {
     }
     getClients()
       .then((cs) => {
+        if (!cs) return;
         setClients(cs);
         if (!preloaded && cs.length > 0) setForm((prev) => ({ ...prev, client_id: String(cs[0].id) }));
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError((e as Error).message));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  async function handleLoadEntries(e) {
+  async function handleLoadEntries(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
       const data = await getUnbilledEntries(form.client_id, form.start_date, form.end_date);
-      if (data.length === 0) {
+      if (!data || data.length === 0) {
         setError('No unbilled time entries found for this client in the selected period.');
         return;
       }
@@ -50,13 +66,13 @@ export default function InvoiceForm() {
       setSelected(new Set(data.map((entry) => entry.id)));
       setStep('select');
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
   }
 
-  function toggleEntry(id) {
+  function toggleEntry(id: number) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -79,9 +95,9 @@ export default function InvoiceForm() {
         end_date: form.end_date,
         time_entry_ids: [...selected],
       });
-      navigate(`/invoices/${invoice.id}`);
+      if (invoice) navigate(`/invoices/${invoice.id}`);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setGenerating(false);
     }
@@ -89,10 +105,11 @@ export default function InvoiceForm() {
 
   const clientName = clients.find((c) => String(c.id) === form.client_id)?.name;
 
-  // Group entries by project or charge code for display
-  const groups = entries.reduce((acc, entry) => {
+  const groups = entries.reduce<Record<string, EntryGroup>>((acc, entry) => {
     const key = entry.project ? `project-${entry.project.id}` : `cc-${entry.charge_code?.id}`;
-    const label = entry.project ? entry.project.name : `${entry.charge_code?.code}${entry.charge_code?.description ? ` — ${entry.charge_code.description}` : ''}`;
+    const label = entry.project
+      ? entry.project.name
+      : `${entry.charge_code?.code}${entry.charge_code?.description ? ` — ${entry.charge_code.description}` : ''}`;
     if (!acc[key]) acc[key] = { label, entries: [] };
     acc[key].entries.push(entry);
     return acc;
@@ -100,7 +117,7 @@ export default function InvoiceForm() {
 
   const selectedTotal = entries
     .filter((e) => selected.has(e.id))
-    .reduce((sum, e) => sum + parseFloat(e.hours), 0);
+    .reduce((sum, e) => sum + e.hours, 0);
 
   if (step === 'select') {
     return (
@@ -142,7 +159,7 @@ export default function InvoiceForm() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3">
                           <span className="text-sm text-gray-500 w-24 shrink-0">{formatDate(entry.date)}</span>
-                          <span className="text-sm font-medium text-gray-900">{parseFloat(entry.hours).toFixed(2)} hrs</span>
+                          <span className="text-sm font-medium text-gray-900">{entry.hours.toFixed(2)} hrs</span>
                           {entry.task && <span className="text-sm text-gray-400">{entry.task.title}</span>}
                         </div>
                         {entry.description && (

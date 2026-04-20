@@ -52,6 +52,20 @@ export interface ChargeCode {
   rate?: number | null;
 }
 
+export interface InvoiceLineItemDetail {
+  id: number;
+  description: string | null;
+  hours: number;
+  rate: number;
+  amount: number;
+  tax_rate: string | null;
+  time_entry?: {
+    date: string;
+    project?: { name: string };
+    charge_code?: { code: string };
+  };
+}
+
 export interface Invoice {
   id: number;
   number: string;
@@ -59,13 +73,15 @@ export interface Invoice {
   total: number | null;
   start_date: string | null;
   end_date: string | null;
+  created_at?: string;
   client?: Client;
   notes?: string | null;
+  invoice_line_items?: InvoiceLineItemDetail[];
 }
 
 export interface InvoiceLineItem {
   id: number;
-  invoice?: Invoice;
+  invoice?: Pick<Invoice, 'id' | 'number'>;
 }
 
 export interface TimeEntry {
@@ -124,6 +140,25 @@ export interface BusinessProfile {
   tax_rate?: string | null;
 }
 
+export interface EstimateLineItem {
+  id: number;
+  description: string | null;
+  hours: number;
+  rate: number;
+  amount: number;
+  tax_rate: string | null;
+  task?: Pick<Task, 'id' | 'status' | 'actual_hours'>;
+}
+
+export interface EstimateChanges {
+  added?: { description: string; hours: string }[];
+  removed?: { description: string }[];
+  changed?: { description: string; old_hours: string; new_hours: string }[];
+  completed?: { description: string; estimated_hours: string; actual_hours: string }[];
+  previous_total?: string;
+  current_total?: string;
+}
+
 export interface Estimate {
   id: number;
   project_id: number;
@@ -133,6 +168,8 @@ export interface Estimate {
   total: number | null;
   created_at: string;
   project?: Project & { client?: Client };
+  estimate_line_items?: EstimateLineItem[];
+  changes?: EstimateChanges;
 }
 
 export interface Attachment {

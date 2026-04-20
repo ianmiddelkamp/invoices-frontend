@@ -4,15 +4,16 @@ import { getEstimate, updateEstimate, downloadEstimatePdf, regenerateEstimatePdf
 import { getBusinessProfile } from '../../api/businessProfile';
 import { formatDate } from '../../utils/dates';
 import { confirm } from '../../services/dialog';
+import type { Estimate, BusinessProfile } from '../../types';
 
-const STATUS_STYLES = {
+const STATUS_STYLES: Record<string, string> = {
   draft:    'bg-gray-100 text-gray-700',
   sent:     'bg-blue-100 text-blue-800',
   accepted: 'bg-green-100 text-green-800',
   declined: 'bg-red-100 text-red-800',
 };
 
-const STATUS_TRANSITIONS = {
+const STATUS_TRANSITIONS: Record<string, { label: string; next: string } | null> = {
   draft:    { label: 'Mark as Sent',     next: 'sent' },
   sent:     { label: 'Mark as Accepted', next: 'accepted' },
   accepted: null,
@@ -20,75 +21,79 @@ const STATUS_TRANSITIONS = {
 };
 
 export default function EstimateDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [estimate, setEstimate] = useState(null);
-  const [business, setBusiness] = useState(null);
+  const [estimate, setEstimate] = useState<Estimate | null>(null);
+  const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    Promise.all([getEstimate(id), getBusinessProfile()])
+    Promise.all([getEstimate(id!), getBusinessProfile()])
       .then(([est, biz]) => { setEstimate(est); setBusiness(biz); })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, [id]);
 
   async function handleSend() {
+    if (!estimate) return;
     const email = estimate.project?.client?.email1;
     if (!await confirm(`Send estimate to ${email}?`, { title: 'Send Estimate', confirmLabel: 'Send', danger: false })) return;
     setSending(true);
     try {
-      const res = await sendEstimate(id);
-      alert(res.message);
+      const res = await sendEstimate(id!);
+      if (res) alert(res.message);
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     } finally {
       setSending(false);
     }
   }
 
   async function handleDownloadPdf() {
+    if (!estimate) return;
     try {
-      await downloadEstimatePdf(id, `${estimate.number}.pdf`);
+      await downloadEstimatePdf(id!, `${estimate.number}.pdf`);
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     }
   }
 
   async function handleRegeneratePdf() {
+    if (!estimate) return;
     if (!await confirm('Regenerate the PDF? This will overwrite the existing file.', { title: 'Regenerate PDF', confirmLabel: 'Regenerate', danger: false })) return;
     setRegenerating(true);
     try {
-      await regenerateEstimatePdf(id);
-      await downloadEstimatePdf(id, `${estimate.number}.pdf`);
+      await regenerateEstimatePdf(id!);
+      await downloadEstimatePdf(id!, `${estimate.number}.pdf`);
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     } finally {
       setRegenerating(false);
     }
   }
 
   async function handleStatusUpdate() {
+    if (!estimate) return;
     const transition = STATUS_TRANSITIONS[estimate.status];
     if (!transition) return;
     try {
-      const updated = await updateEstimate(id, { status: transition.next });
-      setEstimate(updated);
+      const updated = await updateEstimate(id!, { status: transition.next });
+      if (updated) setEstimate(updated);
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     }
   }
 
   async function handleMarkDeclined() {
     if (!await confirm('Mark this estimate as declined?', { title: 'Mark Declined', confirmLabel: 'Decline', danger: true })) return;
     try {
-      const updated = await updateEstimate(id, { status: 'declined' });
-      setEstimate(updated);
+      const updated = await updateEstimate(id!, { status: 'declined' });
+      if (updated) setEstimate(updated);
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     }
   }
 
@@ -107,7 +112,6 @@ export default function EstimateDetail() {
 
   return (
     <div className="p-8 max-w-4xl">
-      {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/estimates')} className="text-sm text-gray-500 hover:text-gray-700">
@@ -158,7 +162,6 @@ export default function EstimateDetail() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 flex flex-col" style={{ minHeight: '1050px' }}>
-        {/* Document header */}
         <div className="flex justify-between items-start">
           <div>
             {business?.logo_data_uri ? (
@@ -179,10 +182,8 @@ export default function EstimateDetail() {
           </div>
         </div>
 
-        {/* Brand rule */}
         <div style={{ borderTop: `2px solid ${brand}`, margin: '16px 0' }} />
 
-        {/* Parties */}
         <div className="grid grid-cols-2 gap-8 mb-6">
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">From</p>
@@ -206,7 +207,6 @@ export default function EstimateDetail() {
           </div>
         </div>
 
-        {/* Line items */}
         <table className="w-full border-collapse">
           <thead>
             <tr style={{ backgroundColor: brand }}>
@@ -219,8 +219,8 @@ export default function EstimateDetail() {
           <tbody>
             {estimate.estimate_line_items?.map((item, i) => {
               const done = item.task?.status === 'done';
-              const actualHours = done ? parseFloat(item.task?.actual_hours || 0) : null;
-              const displayAmount = done ? (actualHours * parseFloat(item.rate)) : parseFloat(item.amount);
+              const actualHours = done ? (item.task?.actual_hours ?? 0) : null;
+              const displayAmount = done ? ((actualHours ?? 0) * item.rate) : item.amount;
               return (
                 <tr key={item.id} style={i % 2 === 1 ? { backgroundColor: '#f9fafb' } : {}}>
                   <td className="px-3 py-2 text-sm text-gray-700 border-b border-gray-200">
@@ -235,12 +235,12 @@ export default function EstimateDetail() {
                   </td>
                   <td className="px-3 py-2 text-sm text-right border-b border-gray-200">
                     {done ? (
-                      <span className="text-gray-500">est. {parseFloat(item.hours).toFixed(2)} → <strong className="text-gray-900">{actualHours.toFixed(2)}</strong></span>
+                      <span className="text-gray-500">est. {item.hours.toFixed(2)} → <strong className="text-gray-900">{actualHours!.toFixed(2)}</strong></span>
                     ) : (
-                      <span className="text-gray-900">{parseFloat(item.hours).toFixed(2)}</span>
+                      <span className="text-gray-900">{item.hours.toFixed(2)}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-sm text-gray-900 text-right border-b border-gray-200">${parseFloat(item.rate).toFixed(2)}</td>
+                  <td className="px-3 py-2 text-sm text-gray-900 text-right border-b border-gray-200">${item.rate.toFixed(2)}</td>
                   <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right border-b border-gray-200">${displayAmount.toFixed(2)}</td>
                 </tr>
               );
@@ -248,13 +248,15 @@ export default function EstimateDetail() {
           </tbody>
         </table>
 
-        {/* Total */}
         {(() => {
           const items = estimate.estimate_line_items || [];
-          const itemAmount = (i) => i.task?.status === 'done' ? parseFloat(i.task?.actual_hours || 0) * parseFloat(i.rate) : parseFloat(i.amount);
+          const itemAmount = (item: typeof items[0]) =>
+            item.task?.status === 'done'
+              ? (item.task?.actual_hours ?? 0) * item.rate
+              : item.amount;
           const subtotal = items.reduce((s, i) => s + itemAmount(i), 0);
-          const taxAmount = items.reduce((s, i) => s + itemAmount(i) * parseFloat(i.tax_rate || 0) / 100, 0);
-          const taxRate = items.find(i => parseFloat(i.tax_rate) > 0)?.tax_rate;
+          const taxAmount = items.reduce((s, i) => s + itemAmount(i) * parseFloat(i.tax_rate || '0') / 100, 0);
+          const taxRate = items.find((i) => parseFloat(i.tax_rate || '0') > 0)?.tax_rate;
           return (
             <div className="mt-auto flex justify-end pt-4">
               <div className="text-right space-y-1">
@@ -265,7 +267,7 @@ export default function EstimateDetail() {
                   </div>
                   <div className="flex justify-between gap-16">
                     <span className="text-xs text-gray-500 uppercase tracking-widest">
-                      HST ({parseFloat(taxRate).toFixed(0)}%){business?.hst_number ? ` · Reg# ${business.hst_number}` : ''}
+                      HST ({parseFloat(taxRate!).toFixed(0)}%){business?.hst_number ? ` · Reg# ${business.hst_number}` : ''}
                     </span>
                     <span className="text-sm text-gray-700">${taxAmount.toFixed(2)}</span>
                   </div>
@@ -279,64 +281,62 @@ export default function EstimateDetail() {
           );
         })()}
 
-        {/* Footer */}
         <div className="mt-10 pt-3 border-t border-gray-200 text-xs text-gray-400 leading-relaxed">
           {footer}
           <br />
           Thank you for your business.
         </div>
       </div>
-      
-        {/* Changes since last sent */}
-        {estimate.changes && (
-          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
-            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">Changes since last sent</p>
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr style={{ backgroundColor: brand }}>
-                  <th className="px-3 py-1.5 text-left font-semibold text-white">Change</th>
-                  <th className="px-3 py-1.5 text-left font-semibold text-white">Detail</th>
+
+      {estimate.changes && (
+        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">Changes since last sent</p>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr style={{ backgroundColor: brand }}>
+                <th className="px-3 py-1.5 text-left font-semibold text-white">Change</th>
+                <th className="px-3 py-1.5 text-left font-semibold text-white">Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              {estimate.changes.added?.map((item, i) => (
+                <tr key={`added-${i}`} className="border-b border-amber-100">
+                  <td className="px-3 py-1.5 text-green-700 font-medium">Added</td>
+                  <td className="px-3 py-1.5 text-gray-700">{item.description} ({parseFloat(item.hours).toFixed(2)}h)</td>
                 </tr>
-              </thead>
-              <tbody>
-                {estimate.changes.added?.map((item, i) => (
-                  <tr key={`added-${i}`} className="border-b border-amber-100">
-                    <td className="px-3 py-1.5 text-green-700 font-medium">Added</td>
-                    <td className="px-3 py-1.5 text-gray-700">{item.description} ({parseFloat(item.hours).toFixed(2)}h)</td>
-                  </tr>
-                ))}
-                {estimate.changes.removed?.map((item, i) => (
-                  <tr key={`removed-${i}`} className="border-b border-amber-100">
-                    <td className="px-3 py-1.5 text-red-600 font-medium">Removed</td>
-                    <td className="px-3 py-1.5 text-gray-700">{item.description}</td>
-                  </tr>
-                ))}
-                {estimate.changes.changed?.map((item, i) => (
-                  <tr key={`changed-${i}`} className="border-b border-amber-100">
-                    <td className="px-3 py-1.5 text-amber-700 font-medium">Revised</td>
-                    <td className="px-3 py-1.5 text-gray-700">
-                      {item.description} ({parseFloat(item.old_hours).toFixed(2)}h → {parseFloat(item.new_hours).toFixed(2)}h)
-                    </td>
-                  </tr>
-                ))}
-                {estimate.changes.completed?.map((item, i) => (
-                  <tr key={`completed-${i}`} className="border-b border-amber-100">
-                    <td className="px-3 py-1.5 text-green-700 font-medium">Completed</td>
-                    <td className="px-3 py-1.5 text-gray-700">
-                      {item.description} (est. {parseFloat(item.estimated_hours).toFixed(2)}h → actual {parseFloat(item.actual_hours).toFixed(2)}h)
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td className="px-3 py-1.5 font-semibold text-gray-700">Total</td>
+              ))}
+              {estimate.changes.removed?.map((item, i) => (
+                <tr key={`removed-${i}`} className="border-b border-amber-100">
+                  <td className="px-3 py-1.5 text-red-600 font-medium">Removed</td>
+                  <td className="px-3 py-1.5 text-gray-700">{item.description}</td>
+                </tr>
+              ))}
+              {estimate.changes.changed?.map((item, i) => (
+                <tr key={`changed-${i}`} className="border-b border-amber-100">
+                  <td className="px-3 py-1.5 text-amber-700 font-medium">Revised</td>
                   <td className="px-3 py-1.5 text-gray-700">
-                    ${parseFloat(estimate.changes.previous_total).toFixed(2)} → ${parseFloat(estimate.changes.current_total).toFixed(2)}
+                    {item.description} ({parseFloat(item.old_hours).toFixed(2)}h → {parseFloat(item.new_hours).toFixed(2)}h)
                   </td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+              {estimate.changes.completed?.map((item, i) => (
+                <tr key={`completed-${i}`} className="border-b border-amber-100">
+                  <td className="px-3 py-1.5 text-green-700 font-medium">Completed</td>
+                  <td className="px-3 py-1.5 text-gray-700">
+                    {item.description} (est. {parseFloat(item.estimated_hours).toFixed(2)}h → actual {parseFloat(item.actual_hours).toFixed(2)}h)
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td className="px-3 py-1.5 font-semibold text-gray-700">Total</td>
+                <td className="px-3 py-1.5 text-gray-700">
+                  ${parseFloat(estimate.changes.previous_total!).toFixed(2)} → ${parseFloat(estimate.changes.current_total!).toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

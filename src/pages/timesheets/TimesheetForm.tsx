@@ -12,57 +12,72 @@ import { getTaskGroups } from '../../api/tasks';
 import PageHeader from '../../components/PageHeader';
 import { today, hoursFromRange } from '../../utils/dates';
 import { DateTime } from 'luxon';
+import type { Project, Client, ChargeCode, TaskGroup } from '../../types';
 
-const EMPTY_PROJECT = { project_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '', task_id: '' };
-const EMPTY_CHARGE = { charge_code_id: '', client_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '' };
+interface FormState {
+  project_id: string;
+  charge_code_id: string;
+  client_id: string;
+  date: string;
+  hours: string | number;
+  description: string;
+  start_time: string;
+  stop_time: string;
+  task_id: string;
+}
+
+interface NewCc {
+  code: string;
+  description: string;
+  rate: string;
+}
+
+type Mode = 'project' | 'charge_code';
+
+const EMPTY_PROJECT: FormState = { project_id: '', charge_code_id: '', client_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '', task_id: '' };
+const EMPTY_CHARGE: FormState = { project_id: '', charge_code_id: '', client_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '', task_id: '' };
 
 export default function TimesheetForm() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const isEdit = Boolean(id);
 
-  // Detect mode from location state or default to project
-  const initialMode = location.state?.chargeCodeId ? 'charge_code' : 'project';
+  const locationState = location.state as { chargeCodeId?: string; projectId?: string; clientId?: string } | null;
+  const initialMode: Mode = locationState?.chargeCodeId ? 'charge_code' : 'project';
 
-  const [mode, setMode] = useState(initialMode);
-  const [form, setForm] = useState(
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [form, setForm] = useState<FormState>(
     mode === 'project'
-      ? { ...EMPTY_PROJECT, project_id: location.state?.projectId || '', client_id: location.state?.clientId || '' }
-      : { ...EMPTY_CHARGE, charge_code_id: location.state?.chargeCodeId || '', client_id: location.state?.clientId || '' }
+      ? { ...EMPTY_PROJECT, project_id: locationState?.projectId || '', client_id: locationState?.clientId || '' }
+      : { ...EMPTY_CHARGE, charge_code_id: locationState?.chargeCodeId || '', client_id: locationState?.clientId || '' }
   );
-  const [projects, setProjects] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [chargeCodes, setChargeCodes] = useState([]);
-  const [taskGroups, setTaskGroups] = useState([]);
-  const [error, setError] = useState(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [chargeCodes, setChargeCodes] = useState<ChargeCode[]>([]);
+  const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [newCc, setNewCc] = useState(null); // null = hidden, {} = open
+  const [newCc, setNewCc] = useState<NewCc | null>(null);
   const [savingCc, setSavingCc] = useState(false);
 
-  const timesProvided = form.start_time && form.stop_time;
+  const timesProvided = Boolean(form.start_time && form.stop_time);
 
-  // load projects, clients, and charge code data
   useEffect(() => {
-    getProjects()
-      .then(setProjects)
-      .catch((e) => setError(e.message));
-
-    getClients().then(setClients).catch(() => {});
-    getChargeCodes().then(setChargeCodes).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    getProjects().then((data) => { if (data) setProjects(data); }).catch((e) => setError(e.message));
+    getClients().then((data) => { if (data) setClients(data); }).catch(() => {});
+    getChargeCodes().then((data) => { if (data) setChargeCodes(data); }).catch(() => {});
   }, []);
 
-  // Load existing entry for edit
   useEffect(() => {
-    if (!isEdit) return;
-
-    getTimeEntry(id)
+    if (!isEdit || !id) return;
+    getTimeEntry(Number(id))
       .then((entry) => {
+        if (!entry) return;
         setForm({
           project_id: String(entry.project_id || ''),
           charge_code_id: String(entry.charge_code_id || ''),
-          client_id: String(entry.client_id || location.state?.clientId),
+          client_id: String(entry.client_id || locationState?.clientId || ''),
           date: entry.date,
           hours: entry.hours,
           description: entry.description || '',
@@ -74,13 +89,12 @@ export default function TimesheetForm() {
       .catch((e) => setError(e.message));
   }, []);
 
-  // Load task groups when project changes
   useEffect(() => {
     if (mode !== 'project' || !form.project_id) { setTaskGroups([]); return; }
-    getTaskGroups(form.project_id).then(setTaskGroups).catch(() => setTaskGroups([]));
+    getTaskGroups(Number(form.project_id)).then((data) => { if (data) setTaskGroups(data); }).catch(() => setTaskGroups([]));
   }, [mode, form.project_id]);
 
-  function switchMode(newMode) {
+  function switchMode(newMode: Mode) {
     setMode(newMode);
     setError(null);
     setTaskGroups([]);
@@ -96,19 +110,15 @@ export default function TimesheetForm() {
     ? projects.filter((p) => String(p.client?.id) === form.client_id)
     : projects;
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
     setForm((prev) => {
-      const updated = { ...prev, [name]: value };
-      // Clear project when client changes
+      const updated: FormState = { ...prev, [name]: value };
       if (name === 'client_id') {
         updated.project_id = '';
-      } else if (name === 'project_id' && !prev.client_id ){
-        let project = projects.find( p => p.id === Number(value))
-        if(project){
-          updated.client_id = String(project.client_id)
-        }
-      
+      } else if (name === 'project_id' && !prev.client_id) {
+        const project = projects.find((p) => p.id === Number(value));
+        if (project) updated.client_id = String(project.client_id);
       }
       const date = name === 'date' ? value : updated.date;
       const start = name === 'start_time' ? value : updated.start_time;
@@ -122,43 +132,43 @@ export default function TimesheetForm() {
     });
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
     try {
       if (mode === 'project') {
-        const { project_id, start_time, stop_time, task_id, ...entryData } = form;
+        const { project_id, start_time, stop_time, task_id, charge_code_id, client_id, ...entryData } = form;
         const payload = {
           ...entryData,
-          hours: Math.round(parseFloat(entryData.hours) * 100) / 100,
+          hours: Math.round(parseFloat(String(entryData.hours)) * 100) / 100,
           task_id: task_id || null,
           started_at: start_time ? DateTime.fromISO(`${form.date}T${start_time}`).toISO() : null,
           stopped_at: stop_time ? DateTime.fromISO(`${form.date}T${stop_time}`).toISO() : null,
         };
-        if (isEdit) {
-          await updateTimeEntry(project_id, id, payload);
+        if (isEdit && id) {
+          await updateTimeEntry(Number(project_id), Number(id), payload);
         } else {
-          await createTimeEntry(project_id, payload);
+          await createTimeEntry(Number(project_id), payload);
         }
       } else {
-        const { start_time, stop_time, ...entryData } = form;
+        const { start_time, stop_time, project_id, task_id, ...entryData } = form;
         const payload = {
           ...entryData,
-          hours: Math.round(parseFloat(entryData.hours) * 100) / 100,
+          hours: Math.round(parseFloat(String(entryData.hours)) * 100) / 100,
           started_at: start_time ? DateTime.fromISO(`${form.date}T${start_time}`).toISO() : null,
           stopped_at: stop_time ? DateTime.fromISO(`${form.date}T${stop_time}`).toISO() : null,
         };
-        if (isEdit) {
-          await updateChargeCodeTimeEntry(id, payload);
+        if (isEdit && id) {
+          await updateChargeCodeTimeEntry(Number(id), payload);
         } else {
           await createChargeCodeTimeEntry(payload);
         }
       }
       navigate('/timesheets');
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -174,7 +184,6 @@ export default function TimesheetForm() {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
 
-        {/* Client — always visible */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
           <select
@@ -191,7 +200,6 @@ export default function TimesheetForm() {
           </select>
         </div>
 
-        {/* Mode toggle */}
         {!isEdit && (
           <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm font-medium">
             <button
@@ -250,93 +258,92 @@ export default function TimesheetForm() {
             )}
           </>
         ) : (
-          <>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-gray-700">Charge Code *</label>
-                {!newCc && (
-                  <button type="button" onClick={() => setNewCc({ code: '', description: '', rate: '' })}
-                    className="text-xs text-indigo-600 hover:text-indigo-800">
-                    + New
-                  </button>
-                )}
-              </div>
-              <select
-                name="charge_code_id"
-                value={form.charge_code_id}
-                onChange={handleChange}
-                required={!newCc}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
-              >
-                <option value="">Select a charge code…</option>
-                {chargeCodes.map((cc) => (
-                  <option key={cc.id} value={cc.id}>
-                    {cc.code}{cc.description ? ` — ${cc.description}` : ''}
-                  </option>
-                ))}
-              </select>
-
-              {newCc && (
-                <div className="mt-3 p-3 bg-gray-50 rounded-md border border-gray-200 space-y-2">
-                  <p className="text-xs font-medium text-gray-600">New charge code</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      placeholder="Code *"
-                      value={newCc.code}
-                      onChange={(e) => setNewCc((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
-                      className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5 font-mono uppercase"
-                    />
-                    <input
-                      placeholder="Description"
-                      value={newCc.description}
-                      onChange={(e) => setNewCc((p) => ({ ...p, description: e.target.value }))}
-                      className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5"
-                    />
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="Rate (optional)"
-                    value={newCc.rate}
-                    min="0"
-                    step="0.01"
-                    onChange={(e) => setNewCc((p) => ({ ...p, rate: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5"
-                  />
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      type="button"
-                      disabled={savingCc || !newCc.code.trim()}
-                      onClick={async () => {
-                        setSavingCc(true);
-                        try {
-                          const created = await createChargeCode({
-                            user_id: 1,
-                            code: newCc.code.trim(),
-                            description: newCc.description.trim() || null,
-                            rate: newCc.rate !== '' ? parseFloat(newCc.rate) : null,
-                          });
-                          setChargeCodes((prev) => [...prev, created].sort((a, b) => a.code.localeCompare(b.code)));
-                          setForm((prev) => ({ ...prev, charge_code_id: String(created.id) }));
-                          setNewCc(null);
-                        } catch (e) {
-                          setError(e.message);
-                        } finally {
-                          setSavingCc(false);
-                        }
-                      }}
-                      className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                    >
-                      {savingCc ? 'Saving…' : 'Save'}
-                    </button>
-                    <button type="button" onClick={() => setNewCc(null)}
-                      className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Charge Code *</label>
+              {!newCc && (
+                <button type="button" onClick={() => setNewCc({ code: '', description: '', rate: '' })}
+                  className="text-xs text-indigo-600 hover:text-indigo-800">
+                  + New
+                </button>
               )}
             </div>
-          </>
+            <select
+              name="charge_code_id"
+              value={form.charge_code_id}
+              onChange={handleChange}
+              required={!newCc}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
+            >
+              <option value="">Select a charge code…</option>
+              {chargeCodes.map((cc) => (
+                <option key={cc.id} value={cc.id}>
+                  {cc.code}{cc.description ? ` — ${cc.description}` : ''}
+                </option>
+              ))}
+            </select>
+
+            {newCc && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-md border border-gray-200 space-y-2">
+                <p className="text-xs font-medium text-gray-600">New charge code</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    placeholder="Code *"
+                    value={newCc.code}
+                    onChange={(e) => setNewCc((p) => p ? { ...p, code: e.target.value.toUpperCase() } : null)}
+                    className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5 font-mono uppercase"
+                  />
+                  <input
+                    placeholder="Description"
+                    value={newCc.description}
+                    onChange={(e) => setNewCc((p) => p ? { ...p, description: e.target.value } : null)}
+                    className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5"
+                  />
+                </div>
+                <input
+                  type="number"
+                  placeholder="Rate (optional)"
+                  value={newCc.rate}
+                  min="0"
+                  step="0.01"
+                  onChange={(e) => setNewCc((p) => p ? { ...p, rate: e.target.value } : null)}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5"
+                />
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={savingCc || !newCc.code.trim()}
+                    onClick={async () => {
+                      setSavingCc(true);
+                      try {
+                        const created = await createChargeCode({
+                          code: newCc.code.trim(),
+                          description: newCc.description.trim() || null,
+                          rate: newCc.rate !== '' ? parseFloat(newCc.rate) : null,
+                        });
+                        if (created) {
+                          setChargeCodes((prev) => [...prev, created].sort((a, b) => a.code.localeCompare(b.code)));
+                          setForm((prev) => ({ ...prev, charge_code_id: String(created.id) }));
+                        }
+                        setNewCc(null);
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setSavingCc(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {savingCc ? 'Saving…' : 'Save'}
+                  </button>
+                  <button type="button" onClick={() => setNewCc(null)}
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         <div>
