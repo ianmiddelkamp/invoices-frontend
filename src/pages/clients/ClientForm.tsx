@@ -22,7 +22,18 @@ const EMPTY = {
   sales_terms: 'NET 15',
 };
 
-function Field({ label, name, value, onChange, type = 'text', placeholder }) {
+type FormState = typeof EMPTY;
+
+interface FieldProps {
+  label: string;
+  name: keyof FormState;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+  placeholder?: string;
+}
+
+function Field({ label, name, value, onChange, type = 'text', placeholder }: FieldProps) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -39,55 +50,60 @@ function Field({ label, name, value, onChange, type = 'text', placeholder }) {
 }
 
 export default function ClientForm() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [rate, setRateValue] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isEdit) {
-      getClient(id)
-        .then((c) => setForm({
-          name: c.name ?? '',
-          contact_name: c.contact_name ?? '',
-          email1: c.email1 ?? '',
-          email2: c.email2 ?? '',
-          phone1: c.phone1 ?? '',
-          phone2: c.phone2 ?? '',
-          address1: c.address1 ?? '',
-          address2: c.address2 ?? '',
-          city: c.city ?? '',
-          state: c.state ?? '',
-          postcode: c.postcode ?? '',
-          country:     c.country     ?? '',
-          sales_terms: c.sales_terms ?? 'NET 15',
-        }))
+    if (isEdit && id) {
+      getClient(Number(id))
+        .then((c) => {
+          if (!c) return;
+          setForm({
+            name: c.name ?? '',
+            contact_name: c.contact_name ?? '',
+            email1: c.email1 ?? '',
+            email2: c.email2 ?? '',
+            phone1: c.phone1 ?? '',
+            phone2: c.phone2 ?? '',
+            address1: c.address1 ?? '',
+            address2: c.address2 ?? '',
+            city: c.city ?? '',
+            state: c.state ?? '',
+            postcode: c.postcode ?? '',
+            country: c.country ?? '',
+            sales_terms: c.sales_terms ?? 'NET 15',
+          });
+        })
         .catch((e) => setError(e.message));
 
-      getClientRate(id)
+      getClientRate(Number(id))
         .then((r) => setRateValue(r?.rate != null ? String(r.rate) : ''))
         .catch(() => {});
     }
   }, [id, isEdit]);
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      let clientId = id;
-      if (isEdit) {
-        await updateClient(id, form);
+      let clientId: number;
+      if (isEdit && id) {
+        await updateClient(Number(id), form);
+        clientId = Number(id);
       } else {
         const created = await createClient(form);
+        if (!created) return;
         clientId = created.id;
       }
 
@@ -97,7 +113,7 @@ export default function ClientForm() {
 
       navigate('/clients');
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -112,11 +128,8 @@ export default function ClientForm() {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-
-        {/* Business name */}
         <Field label="Business Name *" name="name" value={form.name} onChange={handleChange} />
 
-        {/* Default rate */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Billing</h3>
           <div className="max-w-xs">
@@ -147,12 +160,11 @@ export default function ClientForm() {
           </div>
         </div>
 
-        {/* Contact */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Contact</h3>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Contact Name" name="contact_name" value={form.contact_name} onChange={handleChange} />
-            <div /> {/* spacer */}
+            <div />
             <Field label="Email" name="email1" value={form.email1} onChange={handleChange} type="email" />
             <Field label="Email 2" name="email2" value={form.email2} onChange={handleChange} type="email" />
             <Field label="Phone" name="phone1" value={form.phone1} onChange={handleChange} type="tel" />
@@ -160,7 +172,6 @@ export default function ClientForm() {
           </div>
         </div>
 
-        {/* Address */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Address</h3>
           <div className="space-y-3">

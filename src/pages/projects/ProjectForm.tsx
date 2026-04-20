@@ -7,68 +7,69 @@ import PageHeader from '../../components/PageHeader';
 import TaskBoard from '../../components/TaskBoard';
 import ProjectEstimates from '../../components/ProjectEstimates';
 import ProjectAttachments from '../../components/ProjectAttachments';
-import { createEstimate } from '../../api/estimates';
+import type { Client } from '../../types';
 
 const EMPTY = { name: '', client_id: '', description: '' };
 
 export default function ProjectForm() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
+  const projectId = id ? Number(id) : undefined;
 
   const [form, setForm] = useState(EMPTY);
   const [rate, setRateValue] = useState('');
-  const [clients, setClients] = useState([]);
-  const [error, setError] = useState(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [creatingEstimate, setCreatingEstimate] = useState(false);
 
   useEffect(() => {
-    getClients().then(setClients).catch((e) => setError(e.message));
+    getClients().then((data) => { if (data) setClients(data); }).catch((e) => setError(e.message));
 
-    if (isEdit) {
-      getProject(id)
-        .then((p) => setForm({ name: p.name, client_id: p.client_id, description: p.description || '' }))
+    if (isEdit && projectId) {
+      getProject(projectId)
+        .then((p) => { if (p) setForm({ name: p.name, client_id: String(p.client_id), description: p.description || '' }); })
         .catch((e) => setError(e.message));
 
-      getProjectRate(id)
+      getProjectRate(projectId)
         .then((r) => setRateValue(r?.rate != null ? String(r.rate) : ''))
-        .catch(() => { }); // no rate yet is fine
+        .catch(() => {});
     }
   }, [id, isEdit]);
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
 
-    // When selecting a client on a new project, pre-populate rate from client default
     if (name === 'client_id' && !isEdit && value) {
-      getClientRate(value)
+      getClientRate(Number(value))
         .then((r) => { if (r?.rate != null) setRateValue(String(r.rate)); })
-        .catch(() => { });
+        .catch(() => {});
     }
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      let projectId = id;
-      if (isEdit) {
-        await updateProject(id, form);
+      let pid: number;
+      if (isEdit && projectId) {
+        await updateProject(projectId, { ...form, client_id: Number(form.client_id) });
+        pid = projectId;
       } else {
-        const created = await createProject(form);
-        projectId = created.id;
+        const created = await createProject({ ...form, client_id: Number(form.client_id) });
+        if (!created) return;
+        pid = created.id;
       }
 
       if (rate !== '') {
-        await setProjectRate(projectId, parseFloat(rate));
+        await setProjectRate(pid, parseFloat(rate));
       }
 
       navigate('/projects');
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -155,25 +156,21 @@ export default function ProjectForm() {
               </button>
             </div>
           </form>
-
         </div>
 
-
-
-        {isEdit && (
+        {isEdit && projectId && (
           <div className="flex-1 min-w-0">
-            <TaskBoard projectId={id} />
+            <TaskBoard projectId={projectId} />
           </div>
         )}
-        {isEdit && (
-          <div  className="flex-1 min-w-0">
-            <ProjectEstimates projectId={id} />
-          </div>
-        )
-        }
-        {isEdit && (
+        {isEdit && projectId && (
           <div className="flex-1 min-w-0">
-            <ProjectAttachments projectId={id} />
+            <ProjectEstimates projectId={projectId} />
+          </div>
+        )}
+        {isEdit && projectId && (
+          <div className="flex-1 min-w-0">
+            <ProjectAttachments projectId={projectId} />
           </div>
         )}
       </div>

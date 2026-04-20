@@ -3,9 +3,17 @@ export interface Client {
   name: string;
   contact_name?: string | null;
   email1?: string | null;
+  email2?: string | null;
   phone1?: string | null;
+  phone2?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postcode?: string | null;
+  country?: string | null;
+  sales_terms?: string | null;
   current_rate?: number | null;
-  address?: string | null;
   notes?: string | null;
 }
 
@@ -41,6 +49,7 @@ export interface ChargeCode {
   id: number;
   code: string;
   description: string | null;
+  rate?: number | null;
 }
 
 export interface Invoice {

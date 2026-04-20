@@ -2,23 +2,24 @@ import { useEffect, useState } from 'react';
 import PageHeader from '../../components/PageHeader';
 import { getChargeCodes, createChargeCode, updateChargeCode, deleteChargeCode } from '../../api/chargeCodes';
 import { confirm } from '../../services/dialog';
+import type { ChargeCode } from '../../types';
 
 const EMPTY = { code: '', description: '', rate: '' };
 
 export default function ChargeCodesPage() {
-  const [chargeCodes, setChargeCodes] = useState([]);
+  const [chargeCodes, setChargeCodes] = useState<ChargeCode[]>([]);
   const [form, setForm] = useState(EMPTY);
-  const [editingId, setEditingId] = useState(null);
-  const [error, setError] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getChargeCodes().then(setChargeCodes).catch((e) => setError(e.message));
+    getChargeCodes().then((data) => { if (data) setChargeCodes(data); }).catch((e) => setError(e.message));
   }, []);
 
-  function startEdit(cc) {
+  function startEdit(cc: ChargeCode) {
     setEditingId(cc.id);
-    setForm({ code: cc.code, description: cc.description || '', rate: cc.rate || '' });
+    setForm({ code: cc.code, description: cc.description || '', rate: cc.rate != null ? String(cc.rate) : '' });
     setError(null);
   }
 
@@ -28,16 +29,15 @@ export default function ChargeCodesPage() {
     setError(null);
   }
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const payload = {
-      user_id: 1,
+    const payload: Partial<ChargeCode> = {
       code: form.code.trim().toUpperCase(),
       description: form.description.trim() || null,
       rate: form.rate !== '' ? parseFloat(form.rate) : null,
@@ -45,26 +45,26 @@ export default function ChargeCodesPage() {
     try {
       if (editingId) {
         const updated = await updateChargeCode(editingId, payload);
-        setChargeCodes((prev) => prev.map((cc) => cc.id === editingId ? updated : cc));
+        if (updated) setChargeCodes((prev) => prev.map((cc) => cc.id === editingId ? updated : cc));
       } else {
         const created = await createChargeCode(payload);
-        setChargeCodes((prev) => [...prev, created].sort((a, b) => a.code.localeCompare(b.code)));
+        if (created) setChargeCodes((prev) => [...prev, created].sort((a, b) => a.code.localeCompare(b.code)));
       }
       cancelEdit();
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id: number) {
     if (!await confirm('Delete this charge code?')) return;
     try {
       await deleteChargeCode(id);
       setChargeCodes((prev) => prev.filter((cc) => cc.id !== id));
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     }
   }
 
@@ -76,7 +76,6 @@ export default function ChargeCodesPage() {
         Charge codes let you bill for standalone work (consultations, training, admin) that isn't tied to a specific project.
       </p>
 
-      {/* Add / Edit form */}
       <div className="bg-white rounded-lg shadow p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">{editingId ? 'Edit Charge Code' : 'New Charge Code'}</h2>
         {error && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>}
@@ -135,7 +134,6 @@ export default function ChargeCodesPage() {
         </form>
       </div>
 
-      {/* List */}
       {chargeCodes.length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
@@ -153,7 +151,7 @@ export default function ChargeCodesPage() {
                   <td className="px-5 py-3 text-sm font-mono font-medium text-gray-900">{cc.code}</td>
                   <td className="px-5 py-3 text-sm text-gray-500">{cc.description || '—'}</td>
                   <td className="px-5 py-3 text-sm text-gray-500">
-                    {cc.rate ? `$${parseFloat(cc.rate).toFixed(2)}/hr` : 'Client rate'}
+                    {cc.rate ? `$${parseFloat(String(cc.rate)).toFixed(2)}/hr` : 'Client rate'}
                   </td>
                   <td className="px-5 py-3 text-right text-sm space-x-3">
                     <button onClick={() => startEdit(cc)} className="text-indigo-600 hover:text-indigo-800">Edit</button>
