@@ -98,9 +98,9 @@ export default function TimesheetList() {
 
   // Create Invoice button logic
   const selectedEntries = entries.filter((e) => selected.has(e.id));
-  const selectedTotalHours = selectedEntries.reduce( (prev, curr) => {
-    return prev + curr.hours
-  },0).toFixed(2)
+  const selectedTotalHours = selectedEntries.reduce((prev, curr) => {
+    return prev + curr.hours;
+  }, 0).toFixed(2);
   const allSelectedUnbilled = selectedEntries.length > 0 && selectedEntries.every((e) => !e.invoice_line_item);
   const selectedClientIds = new Set(
     selectedEntries.map((e) => e.project ? String(e.project.client_id) : String(e.client_id))
@@ -133,15 +133,17 @@ export default function TimesheetList() {
   }
   const sortableColumns = ['date', 'hours', 'client', 'project', 'task']
 
+  const sortableColumns = ['date', 'hours', 'client', 'project', 'task'];
+
   const sortedEntries = [...entries].sort((a, b) => {
     const dir = sort.direction === 'asc' ? 1 : -1;
     switch (sort.column) {
-      case 'date': return dir * a.date.localeCompare(b.date);
-      case 'hours': return dir * (parseFloat(a.hours) - parseFloat(b.hours));
-      case 'client': return dir * clientNameForEntry(a).localeCompare(clientNameForEntry(b));
-      case 'project': return dir * (a.project?.name || a.charge_code?.code || '').localeCompare(b.project?.name || b.charge_code?.code || '');
-      case 'task': return dir * (a.task?.title || '').localeCompare(b.task?.title || '');
-      default: return 0;
+      case 'date':        return dir * a.date.localeCompare(b.date);
+      case 'hours':       return dir * (parseFloat(a.hours) - parseFloat(b.hours));
+      case 'client':      return dir * clientNameForEntry(a).localeCompare(clientNameForEntry(b));
+      case 'project':     return dir * (a.project?.name || a.charge_code?.code || '').localeCompare(b.project?.name || b.charge_code?.code || '');
+      case 'task':        return dir * (a.task?.title || '').localeCompare(b.task?.title || '');
+      default:            return 0;
     }
   });
 
@@ -196,7 +198,7 @@ export default function TimesheetList() {
         {selected.size > 0 && (
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-gray-500">{selected.size} selected</span>
-               <span className="text-sm text-gray-500">{selectedTotalHours} hours</span>
+            <span className="text-sm text-gray-500">{selectedTotalHours} hours</span>
             {canCreateInvoice ? (
               <button
                 onClick={handleCreateInvoice}
@@ -238,25 +240,22 @@ export default function TimesheetList() {
                     { key: 'project', label: 'Project / Code' },
                     { key: 'task', label: 'Task' },
                     { key: 'description', label: 'Description' },
-                  ].map(({ key, label }) => {
-                    return sortableColumns.includes(key) ?
-                      (
-                      <th
-                        key={key}
-                        onClick={() => toggleSort(key)}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700"
-                      >
-                        {label}{sortIndicator(key)}
-                      </th>
-                      ) : ( 
-                      <th
-                        key={key}                        
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider  select-none hover:text-gray-700"
-                      >
-                        {label}
-                      </th>
-                    )  
-                  })}
+                  ].map(({ key, label }) => sortableColumns.includes(key) ? (
+                    <th
+                      key={key}
+                      onClick={() => toggleSort(key)}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700"
+                    >
+                      {label}{sortIndicator(key)}
+                    </th>
+                  ) : (
+                    <th
+                      key={key}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider select-none"
+                    >
+                      {label}
+                    </th>
+                  ))}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -264,7 +263,7 @@ export default function TimesheetList() {
               <tbody className="divide-y divide-gray-200">
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-gray-400">No time entries found.</td>
+                    <td colSpan={11} className="px-6 py-8 text-center text-gray-400">No time entries found.</td>
                   </tr>
                 )}
                 {sortedEntries.map((entry) => {
