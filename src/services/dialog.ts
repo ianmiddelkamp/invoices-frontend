@@ -1,12 +1,12 @@
 type DialogType = 'confirm' | 'alert' | 'list';
 
-interface DialogOptions {
+export interface DialogOptions {
   type: DialogType;
   message: string;
   title?: string;
   confirmLabel?: string;
   danger?: boolean;
-  options?: string[];
+  options?: { label: string; value: string }[];
 }
 
 type ShowFn = (dialog: DialogOptions | null) => void;
@@ -18,7 +18,7 @@ export function _register(show: ShowFn): void {
   _show = show;
 }
 
-export function listSelection(message: string, title: string, options: string[]): Promise<string> {
+export function listSelection(message: string, title: string, options: { label: string; value: string }[]): Promise<string> {
   if (!options || options.length === 0) return Promise.reject(new Error('No options provided for listSelection'));
   return new Promise((resolve) => {
     _resolve = resolve as (value: unknown) => void;

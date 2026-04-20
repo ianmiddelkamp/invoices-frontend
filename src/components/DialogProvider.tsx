@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { _register } from '../services/dialog';
+import type { DialogOptions } from '../services/dialog';
 import ConfirmDialog from './dialogs/confirm';
 import ListSelectionDialog from './dialogs/ListSelection';
+
 export default function DialogProvider() {
-  const [dialog, setDialog] = useState(null);
+  const [dialog, setDialog] = useState<DialogOptions | null>(null);
 
   useEffect(() => {
     _register((d) => setDialog(d));
@@ -20,5 +22,4 @@ export default function DialogProvider() {
     default:
       return null;
   }
-
 }

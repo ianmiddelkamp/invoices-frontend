@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom';
 
-export default function PageHeader({ title, actionLabel, actionTo }) {
+interface Props {
+  title: string;
+  actionLabel?: string;
+  actionTo?: string;
+}
+
+export default function PageHeader({ title, actionLabel, actionTo }: Props) {
   return (
     <div className="flex items-center justify-between mb-6">
       <h2 className="text-2xl font-semibold text-gray-800">{title}</h2>
