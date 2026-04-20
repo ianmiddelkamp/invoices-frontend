@@ -4,9 +4,10 @@ import { getClients } from '../../api/clients';
 import { getProjects } from '../../api/projects';
 import { getAllTimeEntries, deleteTimeEntry, deleteChargeCodeTimeEntry } from '../../api/timeEntries';
 import PageHeader from '../../components/PageHeader';
-import { formatDateTime, formatDate } from '../../utils/dates';
+import { formatDateTime, formatDate, compareStartedAt } from '../../utils/dates';
 import { confirm } from '../../services/dialog';
 import type { Client, Project, TimeEntry } from '../../types';
+import { DateTime } from 'luxon';
 
 export default function TimesheetList() {
   const navigate = useNavigate();
@@ -124,12 +125,15 @@ export default function TimesheetList() {
     return entry.project?.client?.name || entry.client?.name || '—';
   }
 
-  const sortableColumns = ['date', 'hours', 'client', 'project', 'task'];
+  const sortableColumns = ['date', 'started_at', 'hours', 'client', 'project', 'task'];
+
 
   const sortedEntries = [...entries].sort((a, b) => {
     const dir = sort.direction === 'asc' ? 1 : -1;
+  
     switch (sort.column) {
       case 'date':    return dir * a.date.localeCompare(b.date);
+      case 'started_at': return dir * compareStartedAt(a,b)
       case 'hours':   return dir * (a.hours - b.hours);
       case 'client':  return dir * clientNameForEntry(a).localeCompare(clientNameForEntry(b));
       case 'project': return dir * (a.project?.name || a.charge_code?.code || '').localeCompare(b.project?.name || b.charge_code?.code || '');
