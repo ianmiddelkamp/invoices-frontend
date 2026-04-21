@@ -17,7 +17,7 @@ export const updateInvoice = (id: number, data: Partial<Invoice>) =>
   apiFetch<Invoice>(`/invoices/${id}`, { method: 'PATCH', body: JSON.stringify({ invoice: data }) });
 export const deleteInvoice = (id: number) => apiFetch(`/invoices/${id}`, { method: 'DELETE' });
 export const regeneratePdf = (id: number) => apiFetch(`/invoices/${id}/regenerate_pdf`, { method: 'POST' });
-export const sendInvoice = (id: number) => apiFetch(`/invoices/${id}/send_invoice`, { method: 'POST' });
+export const sendInvoice = (id: number) => apiFetch<{ message: string }>(`/invoices/${id}/send_invoice`, { method: 'POST' });
 
 export async function downloadPdf(id: number, filename?: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/invoices/${id}/pdf`, {

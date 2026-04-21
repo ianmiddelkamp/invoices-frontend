@@ -19,7 +19,8 @@ const STATUS_TRANSITIONS: Record<string, { label: string; next: string } | null>
 };
 
 export default function InvoiceDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id: idParam } = useParams<{ id: string }>();
+  const id = Number(idParam);
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
@@ -29,7 +30,7 @@ export default function InvoiceDetail() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    Promise.all([getInvoice(id!), getBusinessProfile()])
+    Promise.all([getInvoice(id), getBusinessProfile()])
       .then(([inv, biz]) => { setInvoice(inv); setBusiness(biz); })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
@@ -40,7 +41,7 @@ export default function InvoiceDetail() {
     if (!await confirm(`Send invoice to ${invoice.client?.email1}?`, { title: 'Send Invoice', confirmLabel: 'Send', danger: false })) return;
     setSending(true);
     try {
-      const res = await sendInvoice(id!);
+      const res = await sendInvoice(id);
       if (res) alert(res.message);
     } catch (e) {
       alert((e as Error).message);
@@ -52,7 +53,7 @@ export default function InvoiceDetail() {
   async function handleDownloadPdf() {
     if (!invoice) return;
     try {
-      await downloadPdf(id!, `${invoice.number}.pdf`);
+      await downloadPdf(id, `${invoice.number}.pdf`);
     } catch (e) {
       alert((e as Error).message);
     }
@@ -63,8 +64,8 @@ export default function InvoiceDetail() {
     if (!await confirm('Regenerate the PDF? This will overwrite the existing file.', { title: 'Regenerate PDF', confirmLabel: 'Regenerate', danger: false })) return;
     setRegenerating(true);
     try {
-      await regeneratePdf(id!);
-      await downloadPdf(id!, `${invoice.number}.pdf`);
+      await regeneratePdf(id);
+      await downloadPdf(id, `${invoice.number}.pdf`);
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -75,7 +76,7 @@ export default function InvoiceDetail() {
   async function handleDelete() {
     if (!await confirm('Delete this invoice? This cannot be undone.', { title: 'Delete Invoice', confirmLabel: 'Delete' })) return;
     try {
-      await deleteInvoice(id!);
+      await deleteInvoice(id);
       navigate('/invoices');
     } catch (e) {
       alert((e as Error).message);
@@ -87,7 +88,7 @@ export default function InvoiceDetail() {
     const transition = STATUS_TRANSITIONS[invoice.status];
     if (!transition) return;
     try {
-      const updated = await updateInvoice(id!, { status: transition.next });
+      const updated = await updateInvoice(id, { status: transition.next });
       if (updated) setInvoice(updated);
     } catch (e) {
       alert((e as Error).message);

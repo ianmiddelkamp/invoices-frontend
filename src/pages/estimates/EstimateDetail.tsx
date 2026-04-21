@@ -21,7 +21,8 @@ const STATUS_TRANSITIONS: Record<string, { label: string; next: string } | null>
 };
 
 export default function EstimateDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id: idParam } = useParams<{ id: string }>();
+  const id = Number(idParam);
   const navigate = useNavigate();
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
@@ -31,7 +32,7 @@ export default function EstimateDetail() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    Promise.all([getEstimate(id!), getBusinessProfile()])
+    Promise.all([getEstimate(id), getBusinessProfile()])
       .then(([est, biz]) => { setEstimate(est); setBusiness(biz); })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
@@ -43,7 +44,7 @@ export default function EstimateDetail() {
     if (!await confirm(`Send estimate to ${email}?`, { title: 'Send Estimate', confirmLabel: 'Send', danger: false })) return;
     setSending(true);
     try {
-      const res = await sendEstimate(id!);
+      const res = await sendEstimate(id);
       if (res) alert(res.message);
     } catch (e) {
       alert((e as Error).message);
@@ -55,7 +56,7 @@ export default function EstimateDetail() {
   async function handleDownloadPdf() {
     if (!estimate) return;
     try {
-      await downloadEstimatePdf(id!, `${estimate.number}.pdf`);
+      await downloadEstimatePdf(id, `${estimate.number}.pdf`);
     } catch (e) {
       alert((e as Error).message);
     }
@@ -66,8 +67,8 @@ export default function EstimateDetail() {
     if (!await confirm('Regenerate the PDF? This will overwrite the existing file.', { title: 'Regenerate PDF', confirmLabel: 'Regenerate', danger: false })) return;
     setRegenerating(true);
     try {
-      await regenerateEstimatePdf(id!);
-      await downloadEstimatePdf(id!, `${estimate.number}.pdf`);
+      await regenerateEstimatePdf(id);
+      await downloadEstimatePdf(id, `${estimate.number}.pdf`);
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -80,7 +81,7 @@ export default function EstimateDetail() {
     const transition = STATUS_TRANSITIONS[estimate.status];
     if (!transition) return;
     try {
-      const updated = await updateEstimate(id!, { status: transition.next });
+      const updated = await updateEstimate(id, { status: transition.next });
       if (updated) setEstimate(updated);
     } catch (e) {
       alert((e as Error).message);
@@ -90,7 +91,7 @@ export default function EstimateDetail() {
   async function handleMarkDeclined() {
     if (!await confirm('Mark this estimate as declined?', { title: 'Mark Declined', confirmLabel: 'Decline', danger: true })) return;
     try {
-      const updated = await updateEstimate(id!, { status: 'declined' });
+      const updated = await updateEstimate(id, { status: 'declined' });
       if (updated) setEstimate(updated);
     } catch (e) {
       alert((e as Error).message);
