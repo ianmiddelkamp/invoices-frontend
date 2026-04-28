@@ -1,4 +1,4 @@
-type DialogType = 'confirm' | 'alert' | 'list';
+type DialogType = 'confirm' | 'alert' | 'list' | 'payment';
 
 export interface DialogOptions {
   type: DialogType;

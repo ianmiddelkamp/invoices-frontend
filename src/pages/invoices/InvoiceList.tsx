@@ -51,13 +51,15 @@ export default function InvoiceList() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {invoices.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">No invoices yet.</td>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-400">No invoices yet.</td>
                 </tr>
               )}
               {invoices.map((inv) => (
@@ -74,12 +76,18 @@ export default function InvoiceList() {
                       : formatDate(inv.start_date)}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {inv.total != null ? `$${parseFloat(String(inv.total)).toFixed(2)}` : '—'}
+                    ${inv.total != null ? `${inv.total?.toFixed(2)}` : '—'}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${STATUS_STYLES[inv.status] ?? ''}`}>
                       {inv.status}
                     </span>
+                  </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    ${inv.outstanding != null ? `${inv.outstanding.toFixed(2)}` : '—'}
+                  </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    {inv.paid_at != null ?  formatDate(inv.paid_at)  : '—'}
                   </td>
                   <td className="px-6 py-4 text-right text-sm space-x-3">
                     <Link to={`/invoices/${inv.id}`} className="text-indigo-600 hover:text-indigo-800">View</Link>

@@ -1,22 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getInvoice, updateInvoice, deleteInvoice, downloadPdf, regeneratePdf, sendInvoice } from '../../api/invoices';
+import { getInvoice, updateInvoice, deleteInvoice, downloadPdf, regeneratePdf, sendInvoice, markAsPaid } from '../../api/invoices';
 import { getBusinessProfile } from '../../api/businessProfile';
 import { formatDate } from '../../utils/dates';
 import { confirm } from '../../services/dialog';
-import type { Invoice, BusinessProfile } from '../../types';
+import type { Invoice, BusinessProfile, PaymentEntry } from '../../types';
+import { DateTime } from 'luxon';
+import PaymentDialog from './dialogs/PaymentDialog';
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
-  sent:    'bg-blue-100 text-blue-800',
-  paid:    'bg-green-100 text-green-800',
+  sent: 'bg-blue-100 text-blue-800',
+  paid: 'bg-green-100 text-green-800',
 };
 
-const STATUS_TRANSITIONS: Record<string, { label: string; next: string } | null> = {
-  pending: { label: 'Mark as Sent', next: 'sent' },
-  sent:    { label: 'Mark as Paid', next: 'paid' },
-  paid:    null,
-};
 
 export default function InvoiceDetail() {
   const { id: idParam } = useParams<{ id: string }>();
@@ -28,6 +25,8 @@ export default function InvoiceDetail() {
   const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [paymentEntry, setPaymentEntry] = useState<PaymentEntry | null>()
 
   useEffect(() => {
     Promise.all([getInvoice(id), getBusinessProfile()])
@@ -83,12 +82,34 @@ export default function InvoiceDetail() {
     }
   }
 
-  async function handleStatusUpdate() {
-    if (!invoice) return;
-    const transition = STATUS_TRANSITIONS[invoice.status];
-    if (!transition) return;
+  async function openPaymentDialog() {
+    if (!invoice) {
+      return
+    }
+    const paymentEntry: PaymentEntry = {
+      invoice: invoice,
+      paid_at: DateTime.local().toISODate(),
+      amount_paid: invoice.total ?? 0
+    }
+    setPaymentEntry(paymentEntry)
+    setShowPaymentDialog(true)
+  }
+
+  async function handleMarkAsPaid(payment: PaymentEntry) {
     try {
-      const updated = await updateInvoice(id, { status: transition.next });
+      const updated = await markAsPaid(id, payment.amount_paid, payment.paid_at ?? undefined);
+      setInvoice(updated);
+      setPaymentEntry(null)
+      setShowPaymentDialog(false);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
+
+  async function handleMarkAsSent() {
+    if (!invoice) return;
+    try {
+      const updated = await updateInvoice(id, { status: 'sent' });
       if (updated) setInvoice(updated);
     } catch (e) {
       alert((e as Error).message);
@@ -96,11 +117,10 @@ export default function InvoiceDetail() {
   }
 
   if (loading) return <div className="p-8 text-gray-500">Loading…</div>;
-  if (error)   return <div className="p-8 text-red-600">{error}</div>;
+  if (error) return <div className="p-8 text-red-600">{error}</div>;
   if (!invoice) return null;
 
   const brand = business?.primary_color || '#4338ca';
-  const transition = STATUS_TRANSITIONS[invoice.status];
 
   const bizAddress = [business?.address1, business?.city, business?.state, business?.postcode].filter(Boolean).join(', ');
   const clientAddress = [invoice.client?.address1, invoice.client?.city, invoice.client?.state, invoice.client?.postcode].filter(Boolean).join(', ');
@@ -124,12 +144,12 @@ export default function InvoiceDetail() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          {transition && (
+          {invoice.status === 'pending' && (
             <button
-              onClick={handleStatusUpdate}
+              onClick={handleMarkAsSent}
               className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
             >
-              {transition.label}
+              Mark as Sent
             </button>
           )}
           <button
@@ -144,6 +164,12 @@ export default function InvoiceDetail() {
             className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
           >
             Download PDF
+          </button>
+          <button
+            onClick={openPaymentDialog}
+            className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            Mark As Paid
           </button>
           <button
             onClick={handleRegeneratePdf}
@@ -267,6 +293,15 @@ export default function InvoiceDetail() {
           {footer}
         </div>
       </div>
+      {showPaymentDialog && (
+        <PaymentDialog
+          payment={paymentEntry!}
+          onSubmit={handleMarkAsPaid}
+          onCancel={() => setShowPaymentDialog(false)}
+        />
+      )}
     </div>
+
+
   );
 }

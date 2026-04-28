@@ -18,7 +18,7 @@ export default function DialogProvider() {
     case 'alert':
       return <ConfirmDialog dialog={dialog} />;
     case 'list':
-      return <ListSelectionDialog dialog={dialog} />;
+      return <ListSelectionDialog dialog={dialog} />; 
     default:
       return null;
   }

@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+
 export interface Client {
   id: number;
   name: string;
@@ -77,6 +79,16 @@ export interface Invoice {
   client?: Client;
   notes?: string | null;
   invoice_line_items?: InvoiceLineItemDetail[];
+  paid_at?: string | null;
+  amount_paid:  number | null;
+  outstanding: number | null;
+}
+
+export interface PaymentEntry {
+  id?: number;
+  invoice: Invoice;
+  paid_at?: string | null;
+  amount_paid:  number ;
 }
 
 export interface InvoiceLineItem {
