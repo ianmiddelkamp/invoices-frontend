@@ -20,6 +20,7 @@ export interface Client {
 }
 
 export interface Project {
+  is_archived: boolean
   id: number;
   name: string;
   client_id: number;

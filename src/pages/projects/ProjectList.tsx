@@ -11,12 +11,18 @@ export default function ProjectList() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const [filters, setFilters] = useState({
+    showArchived: false,
+  });
+
   useEffect(() => {
-    getProjects()
+    const params: Record<string, string> = {};
+    if (filters.showArchived) params.show_archived = 'true';
+    getProjects(params)
       .then((data) => { if (data) setProjects(data); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [filters]);
 
   async function handleDelete(id: number) {
     if (!await confirm('Delete this project?')) return;
@@ -31,11 +37,25 @@ export default function ProjectList() {
   function goToProject(id: number) {
     navigate(`/projects/${id}/edit`);
   }
-
+  function setFilter(key: string, value: string | boolean) {
+    setFilters((prev) => {
+      return { ...prev, [key]: value };
+    });
+  }
   return (
     <div className="p-8">
       <PageHeader title="Projects" actionLabel="+ New Project" actionTo="/projects/new" />
-
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={filters.showArchived}
+            onChange={(e) => setFilter('showArchived', e.target.checked)}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Show Archived
+        </label>
+      </div>
       {loading && <p className="text-gray-500">Loading…</p>}
       {error && <p className="text-red-600">{error}</p>}
 
