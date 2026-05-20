@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getProject, createProject, updateProject } from '../../api/projects';
+import { getProject, createProject, updateProject, toggleArchive } from '../../api/projects';
 import { getClients } from '../../api/clients';
 import { getProjectRate, setProjectRate, getClientRate } from '../../api/rates';
 import PageHeader from '../../components/PageHeader';
@@ -8,6 +8,7 @@ import TaskBoard from '../../components/TaskBoard';
 import ProjectEstimates from '../../components/ProjectEstimates';
 import ProjectAttachments from '../../components/ProjectAttachments';
 import type { Client } from '../../types';
+import { confirm } from '../../services/dialog';
 
 const EMPTY = { name: '', client_id: '', description: '' };
 
@@ -22,18 +23,24 @@ export default function ProjectForm() {
   const [clients, setClients] = useState<Client[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [archived, setArchived] = useState(false)
 
   useEffect(() => {
     getClients().then((data) => { if (data) setClients(data); }).catch((e) => setError(e.message));
 
     if (isEdit && projectId) {
       getProject(projectId)
-        .then((p) => { if (p) setForm({ name: p.name, client_id: String(p.client_id), description: p.description || '' }); })
+        .then((p) => {
+          if (p) {
+            setForm({ name: p.name, client_id: String(p.client_id), description: p.description || '' });
+            setArchived(p.is_archived)
+          }
+        })
         .catch((e) => setError(e.message));
 
       getProjectRate(projectId)
         .then((r) => setRateValue(r?.rate != null ? String(r.rate) : ''))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [id, isEdit]);
 
@@ -44,7 +51,7 @@ export default function ProjectForm() {
     if (name === 'client_id' && !isEdit && value) {
       getClientRate(Number(value))
         .then((r) => { if (r?.rate != null) setRateValue(String(r.rate)); })
-        .catch(() => {});
+        .catch(() => { });
     }
   }
 
@@ -72,6 +79,21 @@ export default function ProjectForm() {
       setError((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function confirmArchive() {
+    const ok = await confirm(`${archived ? "Un-Archive" : "Archive"} this project?`)
+    if (ok) {
+      try {
+        const response = await toggleArchive(projectId!, !archived)
+        if (response?.success) {
+          setArchived(!archived)
+        }
+      } catch (err) {
+        setError((err as Error).message);
+      }
+
     }
   }
 
@@ -156,6 +178,25 @@ export default function ProjectForm() {
               </button>
             </div>
           </form>
+          {isEdit && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-800 mt-4">Project Actions</h3>
+              <div className="bg-white rounded-lg shadow p-6 space-y-5 my-5">
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={confirmArchive}
+                    className={`px-4 py-2 text-sm font-medium text-white rounded-md   ${archived ? "bg-indigo-600" : "bg-red-500"}`}>
+                    {archived ? "Un-archive" : "Archive"}
+                  </button>
+
+                </div>
+
+              </div>
+            </>
+          )}
+
         </div>
 
         {isEdit && projectId && (
