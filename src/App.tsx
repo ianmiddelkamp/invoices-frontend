@@ -19,6 +19,7 @@ import TimerPage from './pages/timer/TimerPage';
 import ChargeCodesPage from './pages/charge-codes/ChargeCodesPage';
 import { getToken } from './api/index';
 import { TimerProvider } from './context/TimerContext';
+import { FeaturesProvider } from './context/FeaturesContext';
 import DialogProvider from './components/DialogProvider';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -32,7 +33,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
-        <Route path="/" element={<RequireAuth><TimerProvider><Layout /></TimerProvider></RequireAuth>}>
+        <Route path="/" element={<RequireAuth><FeaturesProvider><TimerProvider><Layout /></TimerProvider></FeaturesProvider></RequireAuth>}>
           <Route index element={<Navigate to="/clients" replace />} />
 
           <Route path="clients" element={<ClientList />} />

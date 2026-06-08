@@ -29,6 +29,7 @@ import {
 } from '../api/tasks';
 import { confirm } from '../services/dialog';
 import SowImport from './SowImport';
+import { useFeatures } from '../context/FeaturesContext';
 import type { Task, TaskGroup } from '../types';
 
 const STATUSES = ['todo', 'in_progress', 'done'] as const;
@@ -444,6 +445,7 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
   const [groups, setGroups] = useState<TaskGroup[]>([]);
   const [newGroupTitle, setNewGroupTitle] = useState('');
   const [activeTask, setActiveTask] = useState<DragData | null>(null);
+  const features = useFeatures();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -651,7 +653,7 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
         </button>
       </form>
 
-      <SowImport projectId={projectId} onImported={() => getTaskGroups(projectId).then((data) => { if (data) setGroups(data); })} />
+      {features.sow_import && <SowImport projectId={projectId} onImported={() => getTaskGroups(projectId).then((data) => { if (data) setGroups(data); })} />}
     </div>
   );
 }
